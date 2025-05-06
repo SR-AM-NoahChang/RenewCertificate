@@ -1,12 +1,10 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:18'  // 使用 Node.js 官方的 Docker image
-            args '-u root'   // 使用 root 權限來安裝 npm
-        }
-    }
+    agent none  // 確保頂層是 "none"，接著在 stages 中使用 docker
     stages {
         stage('Install Dependencies') {
+            agent {
+                docker { image 'node:18' }  // 使用 Node.js Docker image
+            }
             steps {
                 echo 'Installing Newman globally...'
                 sh 'npm install -g newman newman-reporter-html'
@@ -14,6 +12,9 @@ pipeline {
         }
 
         stage('Run Postman Collections') {
+            agent {
+                docker { image 'node:18' }
+            }
             steps {
                 echo 'Running Postman collections...'
                 sh '''
@@ -28,6 +29,7 @@ pipeline {
         }
 
         stage('Publish Test Reports') {
+            agent none
             steps {
                 publishHTML(target: [
                     reportDir: 'reports',
