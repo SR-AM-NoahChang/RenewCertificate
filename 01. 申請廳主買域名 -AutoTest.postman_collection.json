@@ -1,0 +1,570 @@
+{
+	"info": {
+		"_postman_id": "ad7795eb-6a20-4d89-8f36-f77410cdd5e1",
+		"name": "01. 申請廳主買域名 -AutoTest",
+		"description": "#### **申請廳主買域名 > 驗證 workflow 內容是否正確 > 申請刪除域名(確保 Domain 乾淨)**\n\n- 驗證所有調用的 api status code 為**正確狀態**\n    \n- 驗證 workflow 申請單號為 `{PD_WORKFLOW_ID}`\n    \n- 驗證域名為 **sramtest01.com**\n    \n- 驗證 workflow 申請類型為 **CustomerApplyPurchaseDomain**\n    \n- 驗證申請廳主買域名 workflow 建立後應自動產生的所有 Job  \n    (CheckDomainBlocked、VerifyTLD、UpdateDomainRecord、SyncT2、RecheckDomainResolution)\n    \n- 驗證所有 Job 最終狀態是否為 **success**",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "42767672"
+	},
+	"item": [
+		{
+			"name": "申請廳主買域名",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"var randomInt = Math.floor(Math.random() * 9000) + 1000;",
+							"pm.collectionVariables.set(\"RANDOMNUM\", randomInt);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () {",
+							"    pm.response.to.have.status(201);  // 檢查 HTTP 狀態碼是否為 201",
+							"});",
+							"",
+							"var responseJson = pm.response.json(); ",
+							"var workflowId = responseJson.workflow_id;  ",
+							"pm.collectionVariables.set(\"PD_WORKFLOW_ID\", workflowId);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "application/json"
+					},
+					{
+						"key": "X-API-Key",
+						"value": "{{PF_KEY}}"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"domain\": \"{{DOMAIN}}\", \n  \"site_group\": \"dctest\",\n  \"force_binding\": true,\n  \"web_layout\": \"normal\",\n  \"apply_certificate\": false,\n  \"apply_third_level_random\": false,\n  \"verify_mode\": \"none\",\n  \"txt\": \"\",\n  \"company_maintenance\": true,\n  \"domain_provider\": \"dctest\",\n  \"provider_account\": \"abc123\",\n  \"provider_password\": \"abc123456\"\n}\n/* 無效憑證測試用\n{\n  \"domain\": \"qatest{{RANDOMNUM}}.com\",\n  \"hall_name\": \"DCTEST測試環境@dct\",\n  \"site_group\": \"dct\",\n  \"force_binding\": true,\n  \"web_layout\": \"normal\",\n  \"apply_certificate\": true,\n  \"apply_third_level_random\": false,\n  \"verify_mode\": \"none\",\n  \"txt\": \"\",\n  \"company_maintenance\": true,\n  \"domain_provider\": \"DCTEST測試環境@dct\",\n  \"provider_account\": \"\",\n  \"provider_password\": \"\"\n}\n*/\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{DEV}}/workflow_api/pf/application/purchase_domain/customer",
+					"host": [
+						"{{DEV}}"
+					],
+					"path": [
+						"workflow_api",
+						"pf",
+						"application",
+						"purchase_domain",
+						"customer"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "取得廳主買域名詳細資料",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);  // 檢查 HTTP 狀態碼是否為 200",
+							"});",
+							"",
+							"// 申請單號檢查",
+							"pm.test(\"Validate workflow_id is correct\", function() {",
+							"    var responseJson = pm.response.json();  ",
+							"    var expectedWorkflowId = pm.variables.get(\"PD_WORKFLOW_ID\"); ",
+							"    pm.expect(responseJson.workflow_id).to.eql(expectedWorkflowId); ",
+							"});",
+							"",
+							"//域名欄位檢查",
+							"pm.test(\"Validate domain is sramtest01.com\", function() {",
+							"    var responseJson = pm.response.json();  ",
+							"    pm.expect(responseJson.domain).to.eql(\"sramtest01.com\");",
+							"});",
+							"",
+							"//申請類型檢查",
+							"pm.test(\"Validate workflow_name is 申請廳主買域名\", function() {",
+							"    var responseJson = pm.response.json();  ",
+							"    pm.expect(responseJson.workflow_name).to.eql(\"CustomerApplyPurchaseDomain\");",
+							"});",
+							"",
+							"",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "X-API-Key",
+						"value": "{{ADM_KEY}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{DEV}}/workflow_api/adm/workflows/{{PD_WORKFLOW_ID}}",
+					"host": [
+						"{{DEV}}"
+					],
+					"path": [
+						"workflow_api",
+						"adm",
+						"workflows",
+						"{{PD_WORKFLOW_ID}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "取得廳主買域名項目資料 (Job狀態檢查)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// 驗證 HTTP 狀態碼為 200",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"// 預期的 job name 列表",
+							"const expectedNames = [",
+							"    \"CheckDomainBlocked\",",
+							"    \"VerifyTLD\",",
+							"    \"UpdateNameServer\",",
+							"    \"UpdateDomainRecord\",",
+							"    \"MergeErrorRecord\",",
+							"    \"RecheckDomainResolution\",",
+							"    \"RemoveTag\"",
+							"];",
+							"",
+							"// 回應 JSON 只定義一次",
+							"const responseJson = pm.response.json();",
+							"",
+							"// 函數：動態設置 job_id",
+							"function setJobIdForJobName(jobName) {",
+							"    responseJson.forEach(function(item) {",
+							"        if (item.name === jobName) {",
+							"            pm.collectionVariables.set(`${jobName}_job_id`, item.job_id);",
+							"        }",
+							"    });",
+							"}",
+							"",
+							"// 設置所有 job 的 job_id",
+							"expectedNames.forEach(setJobIdForJobName);",
+							"",
+							"// 驗證所有預期的 name 是否都出現在回應中",
+							"pm.test(\"All expected names are present in the response\", function () {",
+							"    const actualNames = responseJson.map(item => item.name);",
+							"",
+							"    expectedNames.forEach(expectedName => {",
+							"        pm.expect(actualNames).to.include(expectedName);",
+							"    });",
+							"});",
+							"",
+							"// 檢查是否有 job 的 status 不為 success，若有就列出",
+							"pm.test(\"所有 job 的 status 都為 success\", function () {",
+							"    const failedJobs = responseJson.filter(job => job.status !== \"success\");",
+							"",
+							"    if (failedJobs.length > 0) {",
+							"        console.log(\"❌ 以下 job status 不為 success：\");",
+							"        failedJobs.forEach(job => {",
+							"            console.log(`🔴 Job ID ${job.job_id} [${job.name}] status: ${job.status}, message: ${job.message || \"無訊息\"}`);",
+							"        });",
+							"    }",
+							"",
+							"    pm.expect(failedJobs.length, \"至少有一個 job status 非 success\").to.eql(0);",
+							"});",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "X-API-Key",
+						"value": "{{ADM_KEY}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{DEV}}/workflow_api/adm/workflows/{{PD_WORKFLOW_ID}}/jobs",
+					"host": [
+						"{{DEV}}"
+					],
+					"path": [
+						"workflow_api",
+						"adm",
+						"workflows",
+						"{{PD_WORKFLOW_ID}}",
+						"jobs"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "更改UpdateNameServer 狀態",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 204\", function () {",
+							"    pm.response.to.have.status(204);  // 檢查 HTTP 狀態碼是否為 204",
+							"});",
+							"",
+							"pm.test(\"延遲等待 5s\", function () {",
+							"    setTimeout(()=>{console.log(\"延遲等待 5s 後執行下個 workflow request\");}, 5000);",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "PATCH",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "X-API-Key",
+						"value": "{{ADM_KEY}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"id\":{{UpdateNameServer_job_id}},\n    \"status\":\"success\"\n    }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{DEV}}/workflow_api/adm/jobs/status",
+					"host": [
+						"{{DEV}}"
+					],
+					"path": [
+						"workflow_api",
+						"adm",
+						"jobs",
+						"status"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "更改RecheckDomainResolution 狀態",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 204\", function () {",
+							"    pm.response.to.have.status(204);  // 檢查 HTTP 狀態碼是否為 204",
+							"});",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "PATCH",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "X-API-Key",
+						"value": "{{ADM_KEY}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"id\":{{RecheckDomainResolution_job_id}},\n    \"status\":\"success\"\n    }",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{DEV}}/workflow_api/adm/jobs/status",
+					"host": [
+						"{{DEV}}"
+					],
+					"path": [
+						"workflow_api",
+						"adm",
+						"jobs",
+						"status"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "申請刪除域名",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"try {",
+							"    const statusCode = pm.response.code;",
+							"",
+							"    pm.test(\"驗證刪除域名 API 回應狀態碼\", function () {",
+							"        if (statusCode === 201) {",
+							"            console.log(\"✅刪除域名執行成功，測試數據 Clear!\");",
+							"            pm.expect(statusCode).to.eql(201);",
+							"        } else {",
+							"            console.warn(\"❌申請刪除域名失敗，狀態碼: \" + statusCode);",
+							"            // 強制測試失敗，但不會阻止流程",
+							"            pm.expect(statusCode, \"預期狀態碼為 201\").to.eql(201);",
+							"        }",
+							"    });",
+							"} catch (error) {",
+							"    console.error(\"❌申請刪除域名過程中發生錯誤：\" + error.message);",
+							"    // 記錄錯誤但不中斷流程",
+							"    pm.test(\"發生例外錯誤但不中斷流程\", function () {",
+							"        pm.expect.fail(\"捕捉例外：\" + error.message);",
+							"    });",
+							"}",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "x-api-key",
+						"value": "{{PF_KEY}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"domain\": \"{{DOMAIN}}\",\n  \"site_group\": \"dctest\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{DEV}}/workflow_api/pf/application/delete_domain",
+					"host": [
+						"{{DEV}}"
+					],
+					"path": [
+						"workflow_api",
+						"pf",
+						"application",
+						"delete_domain"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "PD_WORKFLOW_ID",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "CheckDomainBlocked_job_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "VerifyTLD_job_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "UpdateNameServer_job_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "UpdateDomainRecord_job_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "MergeErrorRecord_job_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "RecheckDomainResolution_job_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "RemoveTag_job_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "PurchaseAndDeployCert_job_id",
+			"value": "",
+			"type": "string",
+			"disabled": true
+		},
+		{
+			"key": "CheckPurchaseDeployCertificateStatus_job_id",
+			"value": "",
+			"type": "string",
+			"disabled": true
+		},
+		{
+			"key": "RecheckCert_job_id",
+			"value": "",
+			"type": "string",
+			"disabled": true
+		},
+		{
+			"key": "DD_WORKFLOW_ID",
+			"value": "",
+			"disabled": true
+		},
+		{
+			"key": "DeleteDomainRecord_job_id",
+			"value": ""
+		},
+		{
+			"key": "RANDOMNUM",
+			"value": ""
+		}
+	]
+}
