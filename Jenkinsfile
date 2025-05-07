@@ -8,19 +8,9 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
-            agent {
-                docker { image 'node:18' }
-            }
-            steps {
-                echo 'Installing Newman globally...'
-                sh 'npm install -g newman newman-reporter-html'
-            }
-        }
-
         stage('Run Postman Collections') {
             agent {
-                docker { image 'node:18' }
+                docker { image 'my-custom-node-image' }  // 使用自定義映像
             }
             steps {
                 echo 'Running Postman collections...'
