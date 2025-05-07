@@ -15,7 +15,7 @@ pipeline {
         stage('Build Newman Docker Image') {
             steps {
                 script {
-                    echo "Building Docker image for Newman..."
+                    echo "Building custom Docker image for Newman..."
                     sh 'docker build -t $DOCKER_IMAGE -f Dockerfile.newman .'
                 }
             }
@@ -26,19 +26,14 @@ pipeline {
                 docker { image "${DOCKER_IMAGE}" }
             }
             steps {
-                echo 'Running all Postman collections...'
+                echo 'Running Postman collections...'
                 sh '''
-                    set -x  # Enable command tracing for better debugging
-                    mkdir -p reports
-                    for file in $(find collections -name "*.json"); do
-                        echo "➡️ Running collection: $file"
-                        name=$(basename "$file" .json)
-                        echo "Full path for collection: $file"
-                        newman run "$file" -e environments/DEV.postman_environment.json -r html --reporter-html-export "reports/${name}.html" || {
-                            echo "❌ Newman failed for $file"
-                            exit 1
-                        }
-                    done
+                mkdir -p reports
+                for file in collections/*.postman_collection.json; do
+                    newman run "$file" -e environments/DEV.postman_environment.json \
+                      -r cli,html \
+                      --reporter-html-export "reports/$(basename "${file%.json}.html")"
+                done
                 '''
             }
         }
