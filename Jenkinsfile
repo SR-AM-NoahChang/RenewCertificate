@@ -30,40 +30,39 @@ pipeline {
                 sh '''
                 set +e
                 mkdir -p reports
+                echo '{"results":[]}' > reports/final_results.json
+
                 for file in collections/*.postman_collection.json; do
                     newman run "$file" -e environments/DEV.postman_environment.json \
-                    -r cli,html \
-                    --reporter-html-export "reports/$(basename "${file%.json}.html")"
+                        -r cli,json \
+                        --reporter-json-export "reports/temp_report.json"
+
+                    jq '.results += input.results' reports/temp_report.json reports/final_results.json > reports/temp_merged.json
+                    mv reports/temp_merged.json reports/final_results.json
                 done
                 set -e
                 '''
             }
         }
 
+        stage('Generate Consolidated HTML Report') {
+            steps {
+                echo 'Generating single HTML report...'
+                sh 'newman-reporter-html reports/final_results.json -o reports/FinalReport.html'
+            }
+        }
 
         stage('Publish Test Reports') {
             steps {
                 publishHTML(target: [
                     reportDir: 'reports',
-                    reportFiles: '*.html',
-                    reportName: 'Postman Test Report'
+                    reportFiles: 'FinalReport.html',
+                    reportName: 'Postman Test Report',
+                    keepAll: true
                 ])
             }
         }
     }
-
-        stage('Publish Test Reports') {
-    steps {
-        publishHTML(target: [
-            reportDir: 'reports',       // 指定報告所在目錄
-            reportFiles: '*.html',      // 匯出的 HTML 測試報告
-            reportName: 'Postman Test Report',  // 在 Jenkins 介面顯示的名稱
-            allowMissing: false,        // 如果報告不存在，是否允許
-            alwaysLinkToLastBuild: false,  // 是否始終連結到最新的 Build
-            keepAll: true               // 保留所有過往測試報告
-        ])
-    }
-}
 
     post {
         always {
