@@ -56,8 +56,8 @@ pipeline {
                         --reporter-json-export /work/reports/temp_report.json || true
 
                     if [ -f /work/reports/temp_report.json ]; then
-                        jq --argfile input /work/reports/temp_report.json '.results += $input.results' /work/reports/final_results.json > /work/reports/temp_merged.json
-                        mv /work/reports/temp_merged.json /work/reports/final_results.json
+                        # Merge temp_report.json results into final_results.json
+                        cat /work/reports/temp_report.json >> /work/reports/final_results.json
                     else
                         echo "❌ Error: temp_report.json not found for collection $file"
                     fi
