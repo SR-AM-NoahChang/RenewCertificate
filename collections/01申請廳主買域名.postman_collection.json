@@ -31,7 +31,11 @@
 							"",
 							"var responseJson = pm.response.json(); ",
 							"var workflowId = responseJson.workflow_id;  ",
-							"pm.collectionVariables.set(\"PD_WORKFLOW_ID\", workflowId);"
+							"pm.collectionVariables.set(\"PD_WORKFLOW_ID\", workflowId);",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -112,6 +116,9 @@
 							"    pm.expect(responseJson.workflow_name).to.eql(\"CustomerApplyPurchaseDomain\");",
 							"});",
 							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); ",
 							"",
 							""
 						],
@@ -217,7 +224,10 @@
 							"",
 							"    pm.expect(failedJobs.length, \"至少有一個 job status 非 success\").to.eql(0);",
 							"});",
-							""
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -273,9 +283,9 @@
 							"    pm.response.to.have.status(204);  // 檢查 HTTP 狀態碼是否為 204",
 							"});",
 							"",
-							"pm.test(\"延遲等待 5s\", function () {",
-							"    setTimeout(()=>{console.log(\"延遲等待 5s 後執行下個 workflow request\");}, 5000);",
-							"});"
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -338,7 +348,10 @@
 							"pm.test(\"Status code is 204\", function () {",
 							"    pm.response.to.have.status(204);  // 檢查 HTTP 狀態碼是否為 204",
 							"});",
-							""
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -418,7 +431,10 @@
 							"        pm.expect.fail(\"捕捉例外：\" + error.message);",
 							"    });",
 							"}",
-							""
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}

@@ -30,7 +30,11 @@
 							"",
 							"var responseJson = pm.response.json(); ",
 							"var workflowId = responseJson.workflow_id;  ",
-							"pm.collectionVariables.set(\"PD_WORKFLOW_ID\", workflowId);"
+							"pm.collectionVariables.set(\"PD_WORKFLOW_ID\", workflowId);",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -111,6 +115,9 @@
 							"    pm.expect(responseJson.workflow_name).to.eql(\"CustomerApplyPurchaseDomain\");",
 							"});",
 							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); ",
 							"",
 							""
 						],
@@ -216,6 +223,10 @@
 							"",
 							"    pm.expect(failedJobs.length, \"至少有一個 job status 非 success\").to.eql(0);",
 							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); ",
 							""
 						],
 						"type": "text/javascript",
@@ -271,6 +282,10 @@
 							"pm.test(\"Status code is 204\", function () {",
 							"    pm.response.to.have.status(204);  // 檢查 HTTP 狀態碼是否為 204",
 							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); ",
 							""
 						],
 						"type": "text/javascript",
@@ -334,6 +349,10 @@
 							"pm.test(\"Status code is 204\", function () {",
 							"    pm.response.to.have.status(204);  // 檢查 HTTP 狀態碼是否為 204",
 							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); ",
 							""
 						],
 						"type": "text/javascript",
@@ -396,7 +415,11 @@
 						"exec": [
 							"pm.test(\"Status code is 200 (NS指向設定)\", function () {",
 							"    pm.response.to.have.status(200);  // 檢查 HTTP 狀態碼是否為 200",
-							"});"
+							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -686,7 +709,11 @@
 						"exec": [
 							"pm.test(\"Status code is 200 (憑證TAG)\", function () {",
 							"    pm.response.to.have.status(200);  // 檢查 HTTP 狀態碼是否為 200",
-							"});"
+							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -936,7 +963,11 @@
 						"exec": [
 							"pm.test(\"Status code is 200\", function () {",
 							"    pm.response.to.have.status(200);  // 檢查 HTTP 狀態碼是否為 200",
-							"});"
+							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1046,7 +1077,11 @@
 							"",
 							"var responseJson = pm.response.json(); ",
 							"var workflowId = responseJson.workflow_id;  ",
-							"pm.collectionVariables.set(\"TLR_WORKFLOW_ID\", workflowId);"
+							"pm.collectionVariables.set(\"TLR_WORKFLOW_ID\", workflowId);",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1114,7 +1149,11 @@
 							"// 驗證 workflow name 是否為“申請三級亂數”",
 							"pm.test(\"Validate workflow_name is 申請三級亂數\", function() {",
 							"    pm.expect(responseJson.workflow_name).to.eql(\"ApplyThirdLevelRandom\");",
-							"});"
+							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1215,7 +1254,10 @@
 							"",
 							"    pm.expect(failedJobs.length, \"至少有一個 job 發生失敗\").to.eql(0);",
 							"});",
-							""
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1273,7 +1315,11 @@
 							"",
 							"pm.test(\"延遲等待 5s\", function () {",
 							"    setTimeout(()=>{console.log(\"延遲等待 5s 後執行下個 workflow request\");}, 5000);",
-							"});"
+							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1336,7 +1382,10 @@
 							"pm.test(\"Status code is 204\", function () {",
 							"    pm.response.to.have.status(204);  // 檢查 HTTP 狀態碼是否為 204",
 							"});",
-							""
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1418,7 +1467,11 @@
 							"}",
 							"var responseJson = pm.response.json(); ",
 							"var workflowId = responseJson.workflow_id;  ",
-							"pm.collectionVariables.set(\"DD_WORKFLOW_ID\", workflowId);"
+							"pm.collectionVariables.set(\"DD_WORKFLOW_ID\", workflowId);",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1526,6 +1579,10 @@
 							"",
 							"    pm.expect(failedJobs.length, \"至少有一個 job status 非 success\").to.eql(0);",
 							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); ",
 							""
 						],
 						"type": "text/javascript",
@@ -1581,6 +1638,10 @@
 							"pm.test(\"Status code is 204\", function () {",
 							"    pm.response.to.have.status(204);  // 檢查 HTTP 狀態碼是否為 204",
 							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); ",
 							""
 						],
 						"type": "text/javascript",

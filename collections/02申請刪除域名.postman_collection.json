@@ -31,7 +31,11 @@
 							"",
 							"var responseJson = pm.response.json(); ",
 							"var workflowId = responseJson.workflow_id;  ",
-							"pm.collectionVariables.set(\"PD_WORKFLOW_ID\", workflowId);"
+							"pm.collectionVariables.set(\"PD_WORKFLOW_ID\", workflowId);",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -142,7 +146,10 @@
 							"",
 							"    pm.expect(failedJobs.length, \"至少有一個 job status 非 success\").to.eql(0);",
 							"});",
-							""
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -217,7 +224,9 @@
 							"    pm.expect(responseJson.workflow_name).to.eql(\"CustomerApplyPurchaseDomain\");",
 							"});",
 							"",
-							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); ",
 							""
 						],
 						"type": "text/javascript",
@@ -272,7 +281,10 @@
 							"pm.test(\"Status code is 204\", function () {",
 							"    pm.response.to.have.status(204);  // 檢查 HTTP 狀態碼是否為 204",
 							"});",
-							""
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -335,7 +347,10 @@
 							"pm.test(\"Status code is 204\", function () {",
 							"    pm.response.to.have.status(204);  // 檢查 HTTP 狀態碼是否為 204",
 							"});",
-							""
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -401,7 +416,11 @@
 							"",
 							"var responseJson = pm.response.json(); ",
 							"var workflowId = responseJson.workflow_id;  ",
-							"pm.collectionVariables.set(\"DD_WORKFLOW_ID\", workflowId);"
+							"pm.collectionVariables.set(\"DD_WORKFLOW_ID\", workflowId);",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -483,7 +502,11 @@
 							"// 驗證 workflow name 是否為“申請刪除域名”",
 							"pm.test(\"Validate workflow_name is 申請刪除域名\", function() {",
 							"    pm.expect(responseJson.workflow_name).to.eql(\"DeleteDomain\");",
-							"});"
+							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -570,6 +593,10 @@
 							"    }",
 							"    */",
 							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
+							"}, 4000); ",
 							""
 						],
 						"type": "text/javascript",
