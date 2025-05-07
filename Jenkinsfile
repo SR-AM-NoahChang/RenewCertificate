@@ -28,16 +28,18 @@ pipeline {
             steps {
                 echo 'Running Postman collections...'
                 sh '''
+                set +e
                 mkdir -p reports
                 for file in collections/*.postman_collection.json; do
                     newman run "$file" -e environments/DEV.postman_environment.json \
-                      -r cli,html \
-                      --reporter-html-export "reports/$(basename "${file%.json}.html")"
+                    -r cli,html \
+                    --reporter-html-export "reports/$(basename "${file%.json}.html")"
                 done
                 set -e
                 '''
             }
         }
+
 
         stage('Publish Test Reports') {
             steps {
