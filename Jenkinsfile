@@ -1,91 +1,104 @@
 pipeline {
-    agent any
-    environment {
-        // 設定環境變數，指向容器中的工作目錄
-        ENV_DIR = '/work/environments'
-        COLLECTIONS_DIR = '/work/collections'
-        REPORTS_DIR = '/work/reports'
+  agent any
+
+  environment {
+    ENV_FILE = "/work/environments/DEV.postman_environment.json"
+    COLLECTION_DIR = "/work/collections"
+    REPORT_DIR = "/work/reports"
+    HTML_REPORT_DIR = "/work/reports/html"
+    ALLURE_RESULTS_DIR = "/work/reports/allure-results"
+  }
+
+  stages {
+    stage('Checkout Code') {
+      steps {
+        checkout scm
+      }
     }
-    stages {
-        stage('Check Environment and Collections') {
-            steps {
-                script {
-                    // 檢查 environments 目錄是否存在，並列出文件
-                    echo 'Checking environment files...'
-                    sh 'ls -lh /work/environments'
-                    
-                    // 檢查 collections 目錄是否存在，並列出文件
-                    echo 'Checking Postman collections...'
-                    sh 'ls -lh /work/collections'
-                }
-            }
-        }
-        stage('Run Postman Collections') {
-            steps {
-                script {
-                    echo 'Running Postman collections...'
-                    // 執行 Postman collections 並生成 JSON 報告
-                    sh '''
-                    newman run /work/collections/*.postman_collection.json \
-                    -e /work/environments/DEV.postman_environment.json \
-                    -r cli,json \
-                    --reporter-json-export /work/reports/temp_report.json
-                    '''
-                }
-            }
-        }
-        stage('Merge JSON Results') {
-            steps {
-                script {
-                    echo 'Merging JSON results...'
-                    // 使用 jq 合併報告結果
-                    sh '''
-                    jq --argfile input /work/reports/temp_report.json '.results += $input.results' /work/reports/final_results.json
-                    mv /work/reports/temp_report.json /work/reports/final_results.json
-                    '''
-                }
-            }
-        }
-        stage('Generate Consolidated HTML Report') {
-            steps {
-                script {
-                    echo 'Generating consolidated HTML report...'
-                    // 生成最終的 HTML 報告
-                    sh '''
-                    newman run /work/collections/*.postman_collection.json \
-                    -e /work/environments/DEV.postman_environment.json \
-                    -r html \
-                    --reporter-html-export /work/reports/FinalReport.html
-                    '''
-                }
-            }
-        }
-        stage('Publish Test Reports') {
-            steps {
-                script {
-                    echo 'Publishing test reports...'
-                    // 將 HTML 報告發佈到 Jenkins
-                    publishHTML(target: [
-                        reportName: 'Postman Test Report',
-                        reportDir: '/work/reports',
-                        reportFiles: 'FinalReport.html',
-                        keepAll: true
-                    ])
-                }
-            }
-        }
+
+    stage('Prepare Folders') {
+      steps {
+        sh '''
+          mkdir -p "${REPORT_DIR}"
+          mkdir -p "${HTML_REPORT_DIR}"
+          mkdir -p "${ALLURE_RESULTS_DIR}"
+        '''
+      }
     }
-    post {
-        always {
-            // 清理工作目錄中的報告
-            echo 'Cleaning up...'
-            sh 'rm -rf /work/reports/*'
+
+    stage('Run All Postman Collections') {
+      steps {
+        script {
+          def collections = [
+            "01申請廳主買域名",
+            "02申請刪除域名",
+            "03申請憑證",
+            "04申請展延憑證",
+            "06申請三級亂數"
+          ]
+
+          collections.each { col ->
+            def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
+            def jsonReport = "${REPORT_DIR}/${col}_report.json"
+            def htmlReport = "${HTML_REPORT_DIR}/${col}.html"
+            def junitReport = "${ALLURE_RESULTS_DIR}/${col}_junit.xml"
+
+            // 每個 collection 獨立包裝錯誤容忍機制
+            catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+              echo "Running collection: ${col}"
+              sh """
+                newman run "${collectionFile}" \
+                  -e "${ENV_FILE}" \
+                  -r json,cli,html,junit \
+                  --reporter-json-export "${jsonReport}" \
+                  --reporter-html-export "${htmlReport}" \
+                  --reporter-junit-export "${junitReport}"
+              """
+            }
+          }
         }
-        success {
-            echo 'Test run completed successfully!'
-        }
-        failure {
-            echo 'Test run failed. Check the logs and reports.'
-        }
+      }
     }
+
+    stage('Merge JSON Results') {
+      steps {
+        echo 'Merging all JSON results into one file...'
+        sh '''
+          jq -s '.' ${REPORT_DIR}/*_report.json > ${REPORT_DIR}/merged_report.json
+        '''
+      }
+    }
+
+    stage('Publish HTML Reports') {
+      steps {
+        publishHTML(target: [
+          reportDir: "${HTML_REPORT_DIR}",
+          reportFiles: '*.html',
+          reportName: 'Postman HTML Reports'
+        ])
+      }
+    }
+
+    stage('Allure Report') {
+      steps {
+        allure includeProperties: false,
+               jdk: '',
+               results: [[path: "${ALLURE_RESULTS_DIR}"]]
+      }
+    }
+  }
+
+  post {
+    always {
+      echo 'Cleaning up temp files...'
+    }
+
+    success {
+      echo 'All collections ran successfully (with individual error tolerance).'
+    }
+
+    failure {
+      echo 'One or more collections failed, check reports for details.'
+    }
+  }
 }
