@@ -1,5 +1,6 @@
 pipeline {
     agent none
+
     stages {
         stage('Checkout Code') {
             agent any
@@ -10,23 +11,23 @@ pipeline {
 
         stage('Run Postman Collections') {
             agent {
-                docker { image 'my-custom-node-image' }  // 使用自定義映像
+                docker { image 'newman-runner' }
             }
             steps {
                 echo 'Running Postman collections...'
                 sh '''
                 mkdir -p reports
-                for file in *.postman_collection.json; do
-                    newman run "$file" -e DEV.postman_environment.json \
+                for file in collections/*.postman_collection.json; do
+                    newman run "$file" -e environments/DEV.postman_environment.json \
                       -r cli,html \
-                      --reporter-html-export "reports/${file%.json}.html"
+                      --reporter-html-export "reports/$(basename "${file%.json}.html")"
                 done
                 '''
             }
         }
 
         stage('Publish Test Reports') {
-            agent none
+            agent any
             steps {
                 publishHTML(target: [
                     reportDir: 'reports',
@@ -39,12 +40,8 @@ pipeline {
 
     post {
         always {
-            echo 'Cleaning up temporary files...'
+            echo 'Cleaning up...'
             sh 'ls -lh reports || true'
-        }
-
-        failure {
-            echo 'Some tests failed. Please check the reports.'
         }
     }
 }
