@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'newman-runner'
-        WORKSPACE = "${env.WORKSPACE}"
+        WORKSPACE = "/var/jenkins_home/workspace/建站管理 postman-tests"
     }
 
     stages {
@@ -40,7 +40,7 @@ pipeline {
             agent {
                 docker { 
                     image "${DOCKER_IMAGE}"
-                    args "--entrypoint='' -v $WORKSPACE/environments:/work/environments"
+                    args "--entrypoint='' -v \"$WORKSPACE/environments:/work/environments\""
                 }
             }
             steps {
