@@ -29,6 +29,13 @@ pipeline {
             }
         }
 
+        stage('Verify Environment Files') {
+            steps {
+                echo 'Checking Postman environment files...'
+                sh 'ls -lh /work/environments || echo "⚠️ Environment files missing!"'
+            }
+        }
+
         stage('Run Postman Collections') {
             agent {
                 docker { 
@@ -45,6 +52,11 @@ pipeline {
 
                 for file in collections/*.postman_collection.json; do
                     echo "Running collection: $file"
+
+                    if [ ! -f /work/environments/DEV.postman_environment.json ]; then
+                        echo "❌ Environment file not found!"
+                        exit 1
+                    fi
 
                     /usr/bin/newman run "$file" -e /work/environments/DEV.postman_environment.json \
                         -r cli,json \
@@ -68,6 +80,11 @@ pipeline {
                 sh '''
                 if ! npm list -g --depth=0 | grep -q newman-reporter-html; then
                     npm install -g newman-reporter-html
+                fi
+
+                if [ ! -f /work/environments/DEV.postman_environment.json ]; then
+                    echo "❌ Environment file not found! Cannot generate report."
+                    exit 1
                 fi
 
                 /usr/bin/newman run collections/01申請廳主買域名.postman_collection.json \

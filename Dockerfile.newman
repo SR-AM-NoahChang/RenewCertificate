@@ -22,9 +22,12 @@ WORKDIR /work
 # **確保 environments 目錄存在**
 RUN mkdir -p /work/environments
 
-# 複製 Postman collections 和環境文件
-COPY collections /work/collections
+# **檢查並確保環境文件存在**
 COPY environments /work/environments
+RUN ls -lh /work/environments/
+
+# 複製 Postman collections
+COPY collections /work/collections
 
 # 確保 reports 目錄存在
 RUN mkdir -p /work/reports
