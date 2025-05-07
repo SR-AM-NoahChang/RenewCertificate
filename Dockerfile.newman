@@ -13,8 +13,7 @@ RUN apk add --no-cache bash git curl jq && \
 RUN npm config set prefix /usr/local
 
 # 安裝 Newman 及報告工具，確保 `newman` 可全局執行
-RUN npm install -g newman newman-reporter-html newman-reporter-junitfull && \
-    if [ ! -f /usr/local/bin/newman ]; then ln -s $(which newman) /usr/local/bin/newman; fi
+RUN npm install -g newman newman-reporter-html newman-reporter-junitfull
 
 # 設定工作目錄
 WORKDIR /work
@@ -34,7 +33,10 @@ COPY collections /work/collections
 # 確保 reports 目錄存在
 RUN mkdir -p /work/reports
 
+# 設定容器啟動命令，讓 `newman` 能夠被靈活調用
 ENTRYPOINT ["newman"]
+
+# 預設執行的命令 (這樣你可以根據需要傳入不同的 Collection 和環境)
 CMD ["run", "/work/collections/default.postman_collection.json", \
      "-e", "/work/environments/DEV.postman_environment.json", \
      "-r", "html", \
