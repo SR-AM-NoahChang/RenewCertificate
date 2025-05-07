@@ -15,7 +15,7 @@ pipeline {
         stage('Build Newman Docker Image') {
             steps {
                 script {
-                    echo "Building custom Docker image for Newman..."
+                    echo "Building Docker image for Newman..."
                     sh 'docker build -t $DOCKER_IMAGE -f Dockerfile.newman .'
                 }
             }
@@ -26,7 +26,7 @@ pipeline {
                 docker { image "${DOCKER_IMAGE}" }
             }
             steps {
-                echo 'Running Postman collections...'
+                echo 'Running all Postman collections...'
                 sh '''
                 mkdir -p reports
                 find collections -name "*.postman_collection.json" -print0 | while IFS= read -r -d '' file; do
