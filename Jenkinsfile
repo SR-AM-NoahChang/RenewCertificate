@@ -22,21 +22,11 @@ pipeline {
             }
         }
 
-        stage('Verify Environment Files') {
-            steps {
-                echo 'Checking Postman environment files...'
-                sh '''
-                mkdir -p $WORKSPACE/environments
-                ls -lh $WORKSPACE/environments
-                '''
-            }
-        }
-
         stage('Run Postman Collections') {
             agent {
-                docker { 
+                docker {
                     image "${DOCKER_IMAGE}"
-                    args "--entrypoint='' -v '$WORKSPACE/environments:/work/environments'"
+                    args "--entrypoint=''" // 不掛載任何本機 volume
                 }
             }
             steps {
@@ -47,7 +37,9 @@ pipeline {
                     exit 1
                 fi
 
-                /usr/bin/newman run collections/01申請廳主買域名.postman_collection.json \
+                mkdir -p reports
+
+                newman run /work/collections/01申請廳主買域名.postman_collection.json \
                     -e /work/environments/DEV.postman_environment.json \
                     -r html \
                     --reporter-html-export reports/FinalReport.html || echo "⚠️ HTML report generation failed"
