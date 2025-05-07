@@ -34,12 +34,18 @@ pipeline {
                 echo '{"results":[]}' > reports/final_results.json
 
                 for file in collections/*.postman_collection.json; do
+                    echo "Running collection: $file"
+
                     newman run "$file" -e environments/DEV.postman_environment.json \
                         -r cli,json \
-                        --reporter-json-export "reports/temp_report.json"
+                        --reporter-json-export "reports/temp_report.json" || true
 
-                    jq '.results += input.results' reports/temp_report.json reports/final_results.json > reports/temp_merged.json
-                    mv reports/temp_merged.json reports/final_results.json
+                    if [ -f reports/temp_report.json ]; then
+                        jq --argfile input reports/temp_report.json '.results += $input.results' reports/final_results.json > reports/temp_merged.json
+                        mv reports/temp_merged.json reports/final_results.json
+                    else
+                        echo "❌ Error: temp_report.json not found for collection $file"
+                    fi
                 done
                 set -e
                 '''
@@ -54,7 +60,10 @@ pipeline {
                     npm install newman-reporter-html --save-dev
                 fi
 
-                node_modules/.bin/newman run reports/final_results.json -r html --reporter-html-export reports/FinalReport.html
+                node_modules/.bin/newman run collections/01申請廳主買域名.postman_collection.json \
+                    -e environments/DEV.postman_environment.json \
+                    -r html \
+                    --reporter-html-export reports/FinalReport.html || echo "HTML report generation failed"
                 '''
             }
         }
