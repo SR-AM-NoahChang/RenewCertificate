@@ -46,7 +46,7 @@ pipeline {
                 for file in collections/*.postman_collection.json; do
                     echo "Running collection: $file"
 
-                    newman run "$file" -e environments/DEV.postman_environment.json \
+                    newman run "$file" -e /work/environments/DEV.postman_environment.json \
                         -r cli,json \
                         --reporter-json-export "reports/temp_report.json" || true
 
@@ -71,7 +71,7 @@ pipeline {
                 fi
 
                 node_modules/.bin/newman run collections/01申請廳主買域名.postman_collection.json \
-                    -e environments/DEV.postman_environment.json \
+                    -e /work/environments/DEV.postman_environment.json \
                     -r html \
                     --reporter-html-export reports/FinalReport.html || echo "⚠️ HTML report generation failed"
                 '''

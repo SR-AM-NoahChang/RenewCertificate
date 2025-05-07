@@ -20,6 +20,9 @@ RUN npm install -g newman \
 # 設定工作目錄
 WORKDIR /work
 
+# **確保 environments 目錄存在，避免錯誤**
+RUN mkdir -p /work/environments
+
 # 複製 Postman collections 和環境文件
 COPY collections /work/collections
 COPY environments /work/environments
@@ -31,4 +34,4 @@ RUN mkdir -p /work/reports
 ENTRYPOINT ["/bin/sh", "-c"]
 
 # 預設執行命令，允許 Jenkins 動態指定 Postman Collection
-CMD ["newman run collections/default.postman_collection.json -e environments/DEV.postman_environment.json -r html --reporter-html-export reports/TestReport.html"]
+CMD ["newman run /work/collections/default.postman_collection.json -e /work/environments/DEV.postman_environment.json -r html --reporter-html-export /work/reports/TestReport.html"]
