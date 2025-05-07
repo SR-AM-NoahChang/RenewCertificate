@@ -52,6 +52,19 @@ pipeline {
         }
     }
 
+        stage('Publish Test Reports') {
+    steps {
+        publishHTML(target: [
+            reportDir: 'reports',       // 指定報告所在目錄
+            reportFiles: '*.html',      // 匯出的 HTML 測試報告
+            reportName: 'Postman Test Report',  // 在 Jenkins 介面顯示的名稱
+            allowMissing: false,        // 如果報告不存在，是否允許
+            alwaysLinkToLastBuild: false,  // 是否始終連結到最新的 Build
+            keepAll: true               // 保留所有過往測試報告
+        ])
+    }
+}
+
     post {
         always {
             echo 'Cleaning up...'
