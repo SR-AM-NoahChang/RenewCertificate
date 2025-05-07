@@ -22,15 +22,25 @@ pipeline {
             }
         }
 
+        stage('Debug Newman Execution') {
+            steps {
+                echo 'Checking Newman installation...'
+                sh 'newman -v || echo "⚠️ Newman not found!"'
+            }
+        }
+
         stage('Run Postman Collections') {
             agent {
-                docker { image "${DOCKER_IMAGE}" }
+                docker { 
+                    image "${DOCKER_IMAGE}"
+                    args '--entrypoint=""'
+                }
             }
             steps {
                 echo 'Running Postman collections...'
                 sh '''
                 set +e
-                mkdir -p reports
+                mkdir -p reports && chmod 777 reports
                 echo '{"results":[]}' > reports/final_results.json
 
                 for file in collections/*.postman_collection.json; do
@@ -63,7 +73,7 @@ pipeline {
                 node_modules/.bin/newman run collections/01申請廳主買域名.postman_collection.json \
                     -e environments/DEV.postman_environment.json \
                     -r html \
-                    --reporter-html-export reports/FinalReport.html || echo "HTML report generation failed"
+                    --reporter-html-export reports/FinalReport.html || echo "⚠️ HTML report generation failed"
                 '''
             }
         }

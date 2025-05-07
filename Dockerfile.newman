@@ -24,11 +24,11 @@ WORKDIR /work
 COPY collections /work/collections
 COPY environments /work/environments
 
-# 設定 ENTRYPOINT，確保 newman 被正確解析
-ENTRYPOINT ["newman"]
+# 確保 reports 目錄存在，避免 Jenkins 錯誤
+RUN mkdir -p /work/reports
 
-# 預設執行命令：運行 Postman collection 並輸出 HTML 報告
-CMD ["run", "collections/default.postman_collection.json", \
-     "-e", "environments/DEV.postman_environment.json", \
-     "-r", "html", \
-     "--reporter-html-export", "reports/TestReport.html"]
+# 使用 /bin/sh 以確保 Jenkins 容器能正確執行
+ENTRYPOINT ["/bin/sh", "-c"]
+
+# 預設執行命令，允許 Jenkins 動態指定 Postman Collection
+CMD ["newman run collections/default.postman_collection.json -e environments/DEV.postman_environment.json -r html --reporter-html-export reports/TestReport.html"]
