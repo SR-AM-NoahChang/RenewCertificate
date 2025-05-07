@@ -26,35 +26,35 @@ pipeline {
             agent {
                 docker {
                     image "${DOCKER_IMAGE}"
-                    args "--entrypoint=''" // 不掛載任何本機 volume
+                    args "--entrypoint='' -v '$WORKSPACE:/work'"
                 }
             }
             steps {
                 echo 'Running Postman collections...'
                 sh '''
-                if [ ! -f /work/environments/DEV.postman_environment.json ]; then
-                    echo "❌ Environment file not found!"
-                    exit 1
-                fi
-
-                mkdir -p reports
+                mkdir -p /work/reports
 
                 newman run /work/collections/01申請廳主買域名.postman_collection.json \
                     -e /work/environments/DEV.postman_environment.json \
-                    -r html \
-                    --reporter-html-export reports/FinalReport.html || echo "⚠️ HTML report generation failed"
+                    -r html,junitfull \
+                    --reporter-html-export /work/reports/FinalReport.html \
+                    --reporter-junitfull-export /work/reports/result.xml || echo "⚠️ Report generation failed"
                 '''
             }
         }
 
         stage('Publish Test Reports') {
             steps {
+                // Publish Newman HTML Report
                 publishHTML(target: [
                     reportDir: 'reports',
                     reportFiles: 'FinalReport.html',
                     reportName: 'Postman Test Report',
                     keepAll: true
                 ])
+
+                // Publish JUnit XML Report
+                junit allowEmptyResults: true, testResults: 'reports/result.xml'
             }
         }
     }
