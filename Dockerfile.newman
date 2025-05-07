@@ -12,7 +12,7 @@ RUN apk add --no-cache bash git curl jq && \
 # 設定 npm 前綴，確保全局安裝的套件可用
 RUN npm config set prefix /usr/local
 
-# 安裝 Newman 及報告工具，並確保 `newman` 可全局執行
+# 安裝 Newman 及報告工具，確保 `newman` 可全局執行
 RUN npm install -g newman newman-reporter-html newman-reporter-junitfull && \
     if [ ! -f /usr/local/bin/newman ]; then ln -s $(which newman) /usr/local/bin/newman; fi
 
@@ -22,7 +22,7 @@ WORKDIR /work
 # **確保 environments 目錄存在**
 RUN mkdir -p /work/environments
 
-# **檢查並確保環境文件存在**
+# **複製環境變數文件，並確認其存在**
 COPY environments /work/environments
 RUN ls -lh /work/environments/
 

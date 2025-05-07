@@ -40,7 +40,7 @@ pipeline {
             agent {
                 docker { 
                     image "${DOCKER_IMAGE}"
-                    args '--entrypoint=""'
+                    args "--entrypoint='' -v $(pwd)/environments:/work/environments"
                 }
             }
             steps {
