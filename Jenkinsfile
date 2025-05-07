@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'newman-runner'
-        WORKSPACE = "/var/jenkins_home/workspace/建站管理 postman-tests"
+        WORKSPACE = "/var/jenkins_home/workspace/建站管理_postman"
     }
 
     stages {
@@ -25,7 +25,10 @@ pipeline {
         stage('Verify Environment Files') {
             steps {
                 echo 'Checking Postman environment files...'
-                sh 'ls -lh "$WORKSPACE/environments" || echo "⚠️ Environment files missing!"'
+                sh '''
+                mkdir -p $WORKSPACE/environments
+                ls -lh $WORKSPACE/environments
+                '''
             }
         }
 
@@ -33,7 +36,7 @@ pipeline {
             agent {
                 docker { 
                     image "${DOCKER_IMAGE}"
-                    args "--entrypoint='' -v \"$WORKSPACE/environments:/work/environments\""
+                    args "--entrypoint='' -v '$WORKSPACE/environments:/work/environments'"
                 }
             }
             steps {
