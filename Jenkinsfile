@@ -16,7 +16,7 @@ pipeline {
             steps {
                 script {
                     echo "Building custom Docker image for Newman..."
-                    sh 'docker build -t $DOCKER_IMAGE -f Dockerfile.newman .'
+                    sh 'docker build --cache-from=$DOCKER_IMAGE -t $DOCKER_IMAGE -f Dockerfile.newman .'
                 }
             }
         }
@@ -34,6 +34,7 @@ pipeline {
                       -r cli,html \
                       --reporter-html-export "reports/$(basename "${file%.json}.html")"
                 done
+                set -e
                 '''
             }
         }
@@ -57,6 +58,9 @@ pipeline {
 
         failure {
             echo '❌ Some tests failed. Check the reports.'
+            emailext subject: "Postman Tests Failed", 
+                    body: "Tests failed, check reports at Jenkins workspace.", 
+                    recipientProviders: [[$class: 'DevelopersRecipientProvider']]
         }
     }
 }
