@@ -1,17 +1,23 @@
+# 使用 Node.js 18 的 Alpine 版本，減少鏡像大小
 FROM node:18-alpine
 
-# 安装必要工具
-RUN apk add --no-cache bash git curl
+# 安裝必要工具
+RUN apk add --no-cache bash git curl jq
 
-# 安装 Newman 和 HTML reporter
-RUN npm install -g newman newman-reporter-html newman-reporter-junitfull newman-reporter-html
+# 安裝 Newman 及報告工具（避免重複安裝）
+RUN npm install -g newman \
+                   newman-reporter-html \
+                   newman-reporter-junitfull
 
-# 设置工作目录
+# 設定工作目錄
 WORKDIR /work
 
-# 将 Postman collections 和环境文件复制到容器中
+# 複製 Postman collections 和環境文件
 COPY collections /work/collections
 COPY environments /work/environments
 
-# 默认执行命令：运行 Postman collection
-CMD ["newman", "run", "collections/申請刪除域名.json", "-e", "environments/DEV.postman_environment.json", "-r", "html", "--reporter-html-export", "reports/申請刪除域名.html"]
+# 預設執行命令：運行 Postman collection
+CMD ["newman", "run", "collections/申請刪除域名.postman_collection.json", \
+     "-e", "environments/DEV.postman_environment.json", \
+     "-r", "html", \
+     "--reporter-html-export", "reports/申請刪除域名.html"]

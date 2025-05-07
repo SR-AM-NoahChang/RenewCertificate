@@ -48,7 +48,12 @@ pipeline {
         stage('Generate Consolidated HTML Report') {
             steps {
                 echo 'Generating single HTML report...'
-                sh 'newman-reporter-html reports/final_results.json -o reports/FinalReport.html'
+                sh '''
+                if ! command -v newman-reporter-html &> /dev/null; then
+                    npm install -g newman-reporter-html
+                fi
+                newman-reporter-html reports/final_results.json -o reports/FinalReport.html
+                '''
             }
         }
 
