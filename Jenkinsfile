@@ -25,7 +25,7 @@ pipeline {
         stage('Debug Newman Execution') {
             steps {
                 echo 'Checking Newman installation...'
-                sh 'newman -v || echo "⚠️ Newman not found!"'
+                sh '/usr/bin/newman -v || echo "⚠️ Newman not found!"'
             }
         }
 
@@ -46,7 +46,7 @@ pipeline {
                 for file in collections/*.postman_collection.json; do
                     echo "Running collection: $file"
 
-                    newman run "$file" -e /work/environments/DEV.postman_environment.json \
+                    /usr/bin/newman run "$file" -e /work/environments/DEV.postman_environment.json \
                         -r cli,json \
                         --reporter-json-export "reports/temp_report.json" || true
 

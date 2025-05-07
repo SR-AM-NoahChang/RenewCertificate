@@ -14,7 +14,7 @@ RUN npm config set prefix /usr/local
 
 # 安裝 Newman 及報告工具，並確保 `newman` 可全局執行
 RUN npm install -g newman newman-reporter-html newman-reporter-junitfull && \
-    ln -s $(which newman) /usr/local/bin/newman
+    if [ ! -f /usr/local/bin/newman ]; then ln -s $(which newman) /usr/local/bin/newman; fi
 
 # 設定工作目錄
 WORKDIR /work
