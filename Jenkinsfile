@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'newman-runner'
-        PATH = "/usr/bin:$PATH"
+        WORKSPACE = "${env.WORKSPACE}"
     }
 
     stages {
@@ -32,7 +32,7 @@ pipeline {
         stage('Verify Environment Files') {
             steps {
                 echo 'Checking Postman environment files...'
-                sh 'ls -lh /work/environments || echo "⚠️ Environment files missing!"'
+                sh 'ls -lh $WORKSPACE/environments || echo "⚠️ Environment files missing!"'
             }
         }
 
@@ -40,7 +40,7 @@ pipeline {
             agent {
                 docker { 
                     image "${DOCKER_IMAGE}"
-                    args "--entrypoint='' -v $(pwd)/environments:/work/environments"
+                    args "--entrypoint='' -v $WORKSPACE/environments:/work/environments"
                 }
             }
             steps {
@@ -50,13 +50,13 @@ pipeline {
                 mkdir -p reports && chmod 777 reports
                 echo '{"results":[]}' > reports/final_results.json
 
+                if [ ! -f /work/environments/DEV.postman_environment.json ]; then
+                    echo "❌ Environment file not found!"
+                    exit 1
+                fi
+
                 for file in collections/*.postman_collection.json; do
                     echo "Running collection: $file"
-
-                    if [ ! -f /work/environments/DEV.postman_environment.json ]; then
-                        echo "❌ Environment file not found!"
-                        exit 1
-                    fi
 
                     /usr/bin/newman run "$file" -e /work/environments/DEV.postman_environment.json \
                         -r cli,json \
