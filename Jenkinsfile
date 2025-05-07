@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'newman-runner'
-        PATH = "/usr/local/bin:$PATH"
+        PATH = "/usr/bin:$PATH"
     }
 
     stages {
@@ -67,10 +67,10 @@ pipeline {
                 echo 'Generating single HTML report...'
                 sh '''
                 if ! npm list -g --depth=0 | grep -q newman-reporter-html; then
-                    npm install newman-reporter-html --save-dev
+                    npm install -g newman-reporter-html
                 fi
 
-                node_modules/.bin/newman run collections/01申請廳主買域名.postman_collection.json \
+                /usr/bin/newman run collections/01申請廳主買域名.postman_collection.json \
                     -e /work/environments/DEV.postman_environment.json \
                     -r html \
                     --reporter-html-export reports/FinalReport.html || echo "⚠️ HTML report generation failed"

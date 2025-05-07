@@ -12,26 +12,28 @@ RUN apk add --no-cache bash git curl jq && \
 # 設定 npm 前綴，確保全局安裝的套件可用
 RUN npm config set prefix /usr/local
 
-# 安裝 Newman 及報告工具
-RUN npm install -g newman \
-                   newman-reporter-html \
-                   newman-reporter-junitfull
+# 安裝 Newman 及報告工具，並確保 `newman` 可全局執行
+RUN npm install -g newman newman-reporter-html newman-reporter-junitfull && \
+    ln -s $(which newman) /usr/local/bin/newman
 
 # 設定工作目錄
 WORKDIR /work
 
-# **確保 environments 目錄存在，避免錯誤**
+# **確保 environments 目錄存在**
 RUN mkdir -p /work/environments
 
 # 複製 Postman collections 和環境文件
 COPY collections /work/collections
 COPY environments /work/environments
 
-# 確保 reports 目錄存在，避免 Jenkins 錯誤
+# 確保 reports 目錄存在
 RUN mkdir -p /work/reports
 
 # 使用 /bin/sh 以確保 Jenkins 容器能正確執行
-ENTRYPOINT ["/bin/sh", "-c"]
+ENTRYPOINT ["newman"]
 
 # 預設執行命令，允許 Jenkins 動態指定 Postman Collection
-CMD ["newman run /work/collections/default.postman_collection.json -e /work/environments/DEV.postman_environment.json -r html --reporter-html-export /work/reports/TestReport.html"]
+CMD ["run", "/work/collections/default.postman_collection.json", \
+     "-e", "/work/environments/DEV.postman_environment.json", \
+     "-r", "html", \
+     "--reporter-html-export", "/work/reports/TestReport.html"]
