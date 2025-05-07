@@ -4,7 +4,7 @@ FROM node:18-alpine
 RUN apk add --no-cache bash git curl
 
 # 安装 Newman 和 HTML reporter
-RUN npm install -g newman newman-reporter-html newman-reporter-junitfull
+RUN npm install -g newman newman-reporter-html newman-reporter-junitfull newman-reporter-html
 
 # 设置工作目录
 WORKDIR /work
