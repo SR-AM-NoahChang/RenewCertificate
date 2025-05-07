@@ -1,9 +1,16 @@
 pipeline {
-    agent none  // 確保頂層是 "none"，接著在 stages 中使用 docker
+    agent none
     stages {
+        stage('Checkout Code') {
+            agent any
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Install Dependencies') {
             agent {
-                docker { image 'node:18' }  // 使用 Node.js Docker image
+                docker { image 'node:18' }
             }
             steps {
                 echo 'Installing Newman globally...'
