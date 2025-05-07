@@ -15,44 +15,40 @@ pipeline {
         stage('Build Newman Docker Image') {
             steps {
                 script {
-                    echo "🔧 Building Docker image for Newman..."
-                    sh 'docker build -t newman-runner -f Dockerfile.newman .'
+                    echo "Building Docker image for Newman..."
+                    sh 'docker build -t $DOCKER_IMAGE -f Dockerfile.newman .'
                 }
             }
         }
 
-        stage('Run All Postman Collections') {
+        stage('Run Postman Collections') {
+            agent {
+                docker { image "${DOCKER_IMAGE}" }
+            }
             steps {
-                script {
-                    docker.image(DOCKER_IMAGE).inside("-v ${env.WORKSPACE}:/work -w /work") {
-                        sh '''
-                            mkdir -p reports
-
-                            for file in collections/*.json; do
-                                echo "➡️ Running collection: $file"
-                                base=$(basename "$file" .json)
-
-                                # 將檔名轉為安全的英文名（避免 Jenkins HTML plugin 報錯）
-                                safe_name=$(echo "$base" | iconv -f utf8 -t ascii//translit | tr -cd '[:alnum:]_-' | tr '[:upper:]' '[:lower:]')
-                                report_file="reports/${safe_name}.html"
-
-                                echo "📝 Saving report as: $report_file"
-
-                                newman run "$file" -e environments/DEV.postman_environment.json \
-                                    -r html --reporter-html-export "$report_file"
-                            done
-                        '''
-                    }
-                }
+                echo 'Running all Postman collections...'
+                sh '''
+                    set -x  # Enable command tracing for better debugging
+                    mkdir -p reports
+                    for file in $(find collections -name "*.json"); do
+                        echo "➡️ Running collection: $file"
+                        name=$(basename "$file" .json)
+                        echo "Full path for collection: $file"
+                        newman run "$file" -e environments/DEV.postman_environment.json -r html --reporter-html-export "reports/${name}.html" || {
+                            echo "❌ Newman failed for $file"
+                            exit 1
+                        }
+                    done
+                '''
             }
         }
 
-        stage('Publish HTML Reports') {
+        stage('Publish Test Reports') {
             steps {
                 publishHTML(target: [
                     reportDir: 'reports',
                     reportFiles: '*.html',
-                    reportName: 'Postman API Test Reports'
+                    reportName: 'Postman Test Report'
                 ])
             }
         }
@@ -60,12 +56,12 @@ pipeline {
 
     post {
         always {
-            echo '🧹 Cleaning up...'
+            echo 'Cleaning up...'
             sh 'ls -lh reports || true'
         }
 
         failure {
-            echo '❌ Some collections failed. Please check the reports.'
+            echo '❌ Some tests failed. Check the reports.'
         }
     }
 }
