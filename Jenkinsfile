@@ -29,12 +29,11 @@ pipeline {
                 echo 'Running all Postman collections...'
                 sh '''
                 mkdir -p reports
-                find collections -name "*.postman_collection.json" -print0 | while IFS= read -r -d '' file; do
+                    for file in $(find collections -name "*.postman_collection.json"); do
                     echo "Running collection: $file"
-                    newman run "$file" -e environments/DEV.postman_environment.json \
-                        -r cli,html \
-                        --reporter-html-export "reports/$(basename "${file%.json}.html")"
-                done
+                    newman run "$file" -r html --reporter-html-export "reports/$(basename "$file" .json).html"
+                    done
+
                 '''
             }
         }
