@@ -1,17 +1,29 @@
 pipeline {
-    agent none
+    agent any
+
+    environment {
+        DOCKER_IMAGE = 'newman-runner'
+    }
 
     stages {
         stage('Checkout Code') {
-            agent any
             steps {
                 checkout scm
             }
         }
 
+        stage('Build Newman Docker Image') {
+            steps {
+                script {
+                    echo "Building custom Docker image for Newman..."
+                    sh 'docker build -t $DOCKER_IMAGE -f Dockerfile.newman .'
+                }
+            }
+        }
+
         stage('Run Postman Collections') {
             agent {
-                docker { image 'newman-runner' }
+                docker { image "${DOCKER_IMAGE}" }
             }
             steps {
                 echo 'Running Postman collections...'
@@ -27,7 +39,6 @@ pipeline {
         }
 
         stage('Publish Test Reports') {
-            agent any
             steps {
                 publishHTML(target: [
                     reportDir: 'reports',
@@ -42,6 +53,10 @@ pipeline {
         always {
             echo 'Cleaning up...'
             sh 'ls -lh reports || true'
+        }
+
+        failure {
+            echo '❌ Some tests failed. Check the reports.'
         }
     }
 }
