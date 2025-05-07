@@ -3,13 +3,14 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'newman-runner'
-        WORKSPACE = "/var/jenkins_home/workspace/建站管理_postman"
+        PATH = "/usr/local/bin:$PATH"
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                checkout scm
+                echo 'Checking out code from Git repository...'
+                git url: 'https://github.com/SR-AM-NoahChang/Maid-postman-auto-tests.git', branch: 'main'
             }
         }
 
@@ -22,32 +23,43 @@ pipeline {
             }
         }
 
-        stage('Run All Postman Collections') {
+        stage('Debug Newman Execution') {
+            steps {
+                echo 'Checking Newman installation...'
+                sh 'newman -v || echo "⚠️ Newman not found!"'
+            }
+        }
+
+        stage('Run Postman Collections') {
             agent {
-                docker {
+                docker { 
                     image "${DOCKER_IMAGE}"
-                    args "--entrypoint='' -v '$WORKSPACE:/work'"
+                    args '--entrypoint=""'
                 }
             }
             steps {
-                echo 'Running all Postman collections and aggregating results...'
+                echo 'Running Postman collections...'
                 sh '''
                 set +e
                 mkdir -p /work/reports && chmod 777 /work/reports
                 echo '{"results":[]}' > /work/reports/final_results.json
 
+                # Ensure the collections and environment files are in place
+                echo "▶️ Running collection: /work/collections/*.postman_collection.json"
+
+                # Run Postman collections using Newman
                 for file in /work/collections/*.postman_collection.json; do
-                    echo "▶️ Running collection: $file"
+                    echo "Running collection: $file"
 
                     newman run "$file" -e /work/environments/DEV.postman_environment.json \
                         -r cli,json \
-                        --reporter-json-export "/work/reports/temp_report.json" || true
+                        --reporter-json-export /work/reports/temp_report.json || true
 
                     if [ -f /work/reports/temp_report.json ]; then
                         jq --argfile input /work/reports/temp_report.json '.results += $input.results' /work/reports/final_results.json > /work/reports/temp_merged.json
                         mv /work/reports/temp_merged.json /work/reports/final_results.json
                     else
-                        echo "❌ temp_report.json not found for $file"
+                        echo "❌ Error: temp_report.json not found for collection $file"
                     fi
                 done
                 set -e
@@ -56,16 +68,21 @@ pipeline {
         }
 
         stage('Generate Consolidated HTML Report') {
-            agent {
-                docker {
-                    image "${DOCKER_IMAGE}"
-                    args "--entrypoint='' -v '$WORKSPACE:/work'"
-                }
-            }
             steps {
-                echo 'Generating consolidated HTML report using sample collection...'
+                echo 'Generating single HTML report...'
                 sh '''
-                newman run /work/collections/01申請廳主買域名.postman_collection.json \
+                if ! npm list -g --depth=0 | grep -q newman-reporter-html; then
+                    npm install newman-reporter-html --save-dev
+                fi
+
+                # Ensure the environment file is available
+                if [ ! -f /work/environments/DEV.postman_environment.json ]; then
+                    echo "❌ Environment file not found!"
+                    exit 1
+                fi
+
+                # Run final collection and generate the HTML report
+                node_modules/.bin/newman run /work/collections/01申請廳主買域名.postman_collection.json \
                     -e /work/environments/DEV.postman_environment.json \
                     -r html \
                     --reporter-html-export /work/reports/FinalReport.html || echo "⚠️ HTML report generation failed"
@@ -87,15 +104,15 @@ pipeline {
 
     post {
         always {
-            echo '🧹 Cleaning up...'
-            sh 'ls -lh reports || true'
+            echo 'Cleaning up...'
+            sh 'ls -lh /work/reports || true'
         }
 
         failure {
             echo '❌ Some tests failed. Check the reports.'
             emailext subject: "Postman Tests Failed", 
-                     body: "Tests failed. Check the HTML report in Jenkins.", 
-                     recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+                    body: "Tests failed, check reports at Jenkins workspace.", 
+                    recipientProviders: [[$class: 'DevelopersRecipientProvider']]
         }
     }
 }
