@@ -1,10 +1,16 @@
 # 使用 Node.js 18 的 Alpine 版本，減少鏡像大小
 FROM node:18-alpine
 
+# 設定環境變數，確保 npm 全局安裝的套件能被正確解析
+ENV PATH="/usr/local/bin:${PATH}"
+
 # 安裝必要工具
 RUN apk add --no-cache bash git curl jq
 
-# 安裝 Newman 及報告工具（避免重複安裝）
+# 設定 npm 前綴，確保全局安裝的套件可用
+RUN npm config set prefix /usr/local
+
+# 安裝 Newman 及報告工具
 RUN npm install -g newman \
                    newman-reporter-html \
                    newman-reporter-junitfull
@@ -16,8 +22,11 @@ WORKDIR /work
 COPY collections /work/collections
 COPY environments /work/environments
 
-# 預設執行命令：運行 Postman collection
-CMD ["newman", "run", "collections/申請刪除域名.postman_collection.json", \
+# 設定 ENTRYPOINT，確保 newman 被正確解析
+ENTRYPOINT ["newman"]
+
+# 預設執行命令：運行 Postman collection 並輸出 HTML 報告
+CMD ["run", "collections/申請刪除域名.postman_collection.json", \
      "-e", "environments/DEV.postman_environment.json", \
      "-r", "html", \
      "--reporter-html-export", "reports/申請刪除域名.html"]

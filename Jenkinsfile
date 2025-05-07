@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'newman-runner'
+        PATH = "/usr/local/bin:$PATH"
     }
 
     stages {
@@ -49,10 +50,11 @@ pipeline {
             steps {
                 echo 'Generating single HTML report...'
                 sh '''
-                if ! command -v newman-reporter-html &> /dev/null; then
-                    npm install -g newman-reporter-html
+                if ! npm list -g --depth=0 | grep -q newman-reporter-html; then
+                    npm install newman-reporter-html --save-dev
                 fi
-                newman-reporter-html reports/final_results.json -o reports/FinalReport.html
+
+                node_modules/.bin/newman run reports/final_results.json -r html --reporter-html-export reports/FinalReport.html
                 '''
             }
         }
