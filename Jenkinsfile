@@ -22,23 +22,22 @@ pipeline {
         }
 
         stage('Run Postman Collections') {
-            agent {
-                docker {
-                    image "${DOCKER_IMAGE}"
-                    args "-v $WORKSPACE:/work -w /work"
-                }
-            }
             steps {
-                echo '🚀 Running all Postman collections...'
-                sh '''
-                    mkdir -p reports
-                    for file in collections/*.postman_collection.json; do
-                        echo "➡️ Running collection: $file"
-                        name=$(basename "$file" .postman_collection.json)
-                        newman run "$file" -e environments/DEV.postman_environment.json \
-                            -r html --reporter-html-export "reports/${name}.html"
-                    done
-                '''
+                script {
+                    echo "🚀 Running all Postman collections inside Docker..."
+
+                    docker.image(DOCKER_IMAGE).inside('-v $WORKSPACE:/work -w /work') {
+                        sh '''
+                            mkdir -p reports
+                            for file in collections/*.postman_collection.json; do
+                                echo "➡️ Running collection: $file"
+                                name=$(basename "$file" .postman_collection.json)
+                                newman run "$file" -e environments/DEV.postman_environment.json \
+                                    -r html --reporter-html-export "reports/${name}.html"
+                            done
+                        '''
+                    }
+                }
             }
         }
 

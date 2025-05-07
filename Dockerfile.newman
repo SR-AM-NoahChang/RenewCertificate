@@ -1,4 +1,13 @@
-FROM node:18
+FROM node:18-alpine
 
-# 安裝 Newman 和 HTML 報告插件
-RUN npm install -g newman newman-reporter-html
+# 安裝必要工具
+RUN apk add --no-cache bash git curl
+
+# 安裝 Newman 和 HTML reporter
+RUN npm install -g newman newman-reporter-html newman-reporter-junitfull
+
+# 設定工作目錄
+WORKDIR /work
+
+# 預設執行指令
+CMD ["newman", "--version"]
