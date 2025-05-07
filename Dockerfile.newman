@@ -1,13 +1,17 @@
 FROM node:18-alpine
 
-# 安裝必要工具
+# 安装必要工具
 RUN apk add --no-cache bash git curl
 
-# 安裝 Newman 和 HTML reporter
+# 安装 Newman 和 HTML reporter
 RUN npm install -g newman newman-reporter-html newman-reporter-junitfull
 
-# 設定工作目錄
+# 设置工作目录
 WORKDIR /work
 
-# 預設執行指令
-CMD ["newman", "--version"]
+# 将 Postman collections 和环境文件复制到容器中
+COPY collections /work/collections
+COPY environments /work/environments
+
+# 默认执行命令：运行 Postman collection
+CMD ["newman", "run", "collections/申請刪除域名.json", "-e", "environments/DEV.postman_environment.json", "-r", "html", "--reporter-html-export", "reports/申請刪除域名.html"]
