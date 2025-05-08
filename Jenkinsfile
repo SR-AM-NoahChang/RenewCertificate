@@ -192,23 +192,19 @@ pipeline {
         ENV_FILE = "/work/environments/DEV.postman_environment.json"
         COLLECTION_DIR = "/work/collections"
         REPORT_DIR = "/work/reports"
-        ALLURE_RESULTS_DIR = "${REPORT_DIR}/allure-results"
-        WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/..."
+        HTML_REPORT_DIR = "/work/reports/html"
+        ALLURE_RESULTS_DIR = "/work/reports/allure-results"
+        SUITES_JSON = "${REPORT_DIR}/suites.json"
+        WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/AAQAGYLH9k0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=HvPXUUnqPlN6c9HhB02kpWleJ86p2lLmDaq32-5t0gQ"
         BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
     }
 
     stages {
-        stage('Checkout Code') {
-            steps {
-                checkout scm
-            }
-        }
-
         stage('Prepare Folders') {
             steps {
                 sh '''
                 rm -rf "${REPORT_DIR}" "${ALLURE_RESULTS_DIR}" allure-results
-                mkdir -p "${ALLURE_RESULTS_DIR}" "${REPORT_DIR}/html" allure-results
+                mkdir -p "${REPORT_DIR}" "${HTML_REPORT_DIR}" "${ALLURE_RESULTS_DIR}" allure-results
                 '''
             }
         }
@@ -224,65 +220,50 @@ pipeline {
                         "06申請三級亂數"
                     ]
 
-                    def successCount = 0
-                    def failList = []
+                    def results = []
 
                     collections.each { col ->
                         def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
-                        def junitReport = "${ALLURE_RESULTS_DIR}/${col}_junit.xml"
-                        def htmlReport = "${REPORT_DIR}/html/${col}.html"
                         def jsonReport = "${REPORT_DIR}/${col}_report.json"
+                        def htmlReport = "${HTML_REPORT_DIR}/${col}.html"
+                        def allureReport = "${ALLURE_RESULTS_DIR}/${col}_allure.xml"
 
                         echo "▶️ Running collection: ${col}"
                         def result = sh (
                             script: """
                                 newman run "${collectionFile}" \\
                                     -e "${ENV_FILE}" \\
-                                    -r cli,json,html,junit \\
+                                    -r cli,json,html,junit,allure \\
                                     --reporter-json-export "${jsonReport}" \\
                                     --reporter-html-export "${htmlReport}" \\
-                                    --reporter-junit-export "${junitReport}"
-
-                                # Cross-platform sed to fix suite and classname for Allure grouping
-                                if [[ "\$(uname)" == "Darwin" ]]; then
-                                  sed -i '' 's|<testsuite name=.*|<testsuite name="${col}"|' "${junitReport}"
-                                  sed -i '' 's|classname=.*|classname="${col}"|' "${junitReport}"
-                                else
-                                  sed -i 's|<testsuite name=.*|<testsuite name="${col}"|' "${junitReport}"
-                                  sed -i 's|classname=.*|classname="${col}"|' "${junitReport}"
-                                fi
+                                    --reporter-allure-export "${allureReport}"
                             """,
                             returnStatus: true
                         )
 
-                        if (result == 0) {
-                            successCount++
-                            echo "✅ ${col} 執行成功."
-                        } else {
-                            failList << col
-                            echo "❌ ${col} 執行失敗."
-                        }
+                        def status = (result == 0) ? "passed" : "failed"
+                        results << ["collection": col, "status": status, "details": jsonReport]
                     }
 
-                    env.FAIL_LIST = failList.join(", ")
-                    env.SUCCESS_COUNT = successCount.toString()
+                    env.FAIL_LIST = results.findAll { it.status == "failed" }.collect { it.collection }.join(", ")
+                    env.SUCCESS_COUNT = results.findAll { it.status == "passed" }.size().toString()
                 }
             }
         }
 
-        stage('Prepare Allure Report Folder') {
+        stage('Merge JSON Results') {
             steps {
-                sh '''
-                    cp ${ALLURE_RESULTS_DIR}/*.xml allure-results/ || true
-                '''
-            }
-        }
+                script {
+                    def suiteResults = results.collect { test ->
+                        def jsonContent = readFile(test.details).trim()
+                        def jsonData = readJSON text: jsonContent
+                        return ["collection": test.collection, "status": test.status, "details": jsonData]
+                    }
 
-        stage('Allure Report') {
-            steps {
-                allure includeProperties: false,
-                       jdk: '',
-                       results: [[path: 'allure-results']]
+                    def finalJSON = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(suiteResults))
+                    writeFile file: SUITES_JSON, text: finalJSON
+                    echo "✅ Allure Report 已整合至 suites.json"
+                }
             }
         }
 
@@ -382,3 +363,6 @@ pipeline {
         }
     }
 }
+
+
+
