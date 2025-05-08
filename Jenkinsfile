@@ -185,6 +185,8 @@
 //     }
 // }
 
+//https://voyager.postman.com/logo/postman-logo-orange-stacked.svg
+
 // 在 pipeline 外宣告全域變數，避免作用域失效
 def results = []
 
@@ -211,7 +213,6 @@ pipeline {
         stage('Set Build Timestamp') {
             steps {
                 script {
-                    // 取得當前時間，並存入環境變數 BUILD_TIME
                     env.BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
                 }
             }
@@ -309,14 +310,13 @@ pipeline {
         }
         failure {
             script {
-                def payload = """\
-{
+                def payload = """{
   "cards": [
     {
       "header": {
         "title": "❌ 測試失敗通知",
         "subtitle": "Jenkins Pipeline 執行失敗",
-        "imageUrl": "https://www.jenkins.io/images/logos/jenkins/jenkins.png",
+        "imageUrl": "https://voyager.postman.com/logo/postman-logo-orange-stacked.svg",
         "imageStyle": "IMAGE"
       },
       "sections": [
@@ -339,8 +339,7 @@ pipeline {
       ]
     }
   ]
-}\
-"""
+}"""
                 sh """
                     curl -X POST -H 'Content-Type: application/json' -d '${payload}' "${WEBHOOK_URL}"
                 """
@@ -348,8 +347,7 @@ pipeline {
         }
         success {
             script {
-                def payload = """\
-{
+                def payload = """{
   "cards": [
     {
       "header": {
@@ -378,8 +376,7 @@ pipeline {
       ]
     }
   ]
-}\
-"""
+}"""
                 sh """
                     curl -X POST -H 'Content-Type: application/json' -d '${payload}' "${WEBHOOK_URL}"
                 """
