@@ -135,85 +135,83 @@
 
 
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    COLLECTION_DIR = './collections'
-    ENV_FILE = './environments/test.postman_environment.json'
-    ALLURE_RESULTS_DIR = 'allure-results'
-    ALLURE_REPORT_DIR = 'allure-report'
-    WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAGYLH9k0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=LSRbXq4RX8JcfVt8sXCEMMYNUAcwMcyunOGELvzsBfE'
-  }
+    environment {
+        COLLECTION_DIR = './collections'
+        ENV_FILE = './environments/test.postman_environment.json'
+        ALLURE_RESULTS_DIR = 'allure-results'
+        ALLURE_REPORT_DIR = 'allure-report'
+        WEBHOOK_URL = 'https://chat.googleapis.com/v1/spaces/AAQAGYLH9k0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=LSRbXq4RX8JcfVt8sXCEMMYNUAcwMcyunOGELvzsBfE'
+    }
 
-  stages {
-    stage('Prepare') {
-      steps {
-        script {
-          sh "rm -rf ${ALLURE_RESULTS_DIR} ${ALLURE_REPORT_DIR}"
-          sh "mkdir -p ${ALLURE_RESULTS_DIR}"
+    stages {
+        stage('Prepare') {
+            steps {
+                script {
+                    sh "rm -rf ${ALLURE_RESULTS_DIR} ${ALLURE_REPORT_DIR}"
+                    sh "mkdir -p ${ALLURE_RESULTS_DIR}"
 
-          collections = sh(
-            script: "ls ${COLLECTION_DIR} | grep _junit\\.xml | sed 's/_junit\\.xml//'",
-            returnStdout: true
-          ).trim().split('\n')
+                    def collectionsRaw = sh(
+                        script: "ls ${COLLECTION_DIR} | grep _junit\\.xml | sed 's/_junit\\.xml//'",
+                        returnStdout: true
+                    ).trim()
+                    def collections = collectionsRaw ? collectionsRaw.split('\n') : []
+
+                    env.COLLECTIONS = groovy.json.JsonOutput.toJson(collections)
+                }
+            }
         }
-      }
-    }
 
-    stage('Run Newman Tests') {
-      steps {
-        script {
-          collections.each { col ->
-            def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
-            def junitReport = "${ALLURE_RESULTS_DIR}/${col}_junit.xml"
+        stage('Run Newman Tests') {
+            steps {
+                script {
+                    def collections = new groovy.json.JsonSlurper().parseText(env.COLLECTIONS)
 
-            sh """
-              newman run "${collectionFile}" \
-                -e "${ENV_FILE}" \
-                -r junit \
-                --reporter-junit-export "${junitReport}"
+                    for (def name : collections) {
+                        def collectionFile = "${COLLECTION_DIR}/${name}.postman_collection.json"
+                        def junitReport = "${ALLURE_RESULTS_DIR}/${name}_junit.xml"
 
-              # 替換 <testsuite name> 以正確顯示為集合名稱
-              sed -i '0,/<testsuite name=/s//<testsuite name="${col}"/' "${junitReport}"
-            """
-          }
+                        // 環境檔案檢查
+                        if (fileExists(ENV_FILE)) {
+                            sh "newman run ${collectionFile} -e ${ENV_FILE} -r junit --reporter-junit-export ${junitReport}"
+                        } else {
+                            sh "newman run ${collectionFile} -r junit --reporter-junit-export ${junitReport}"
+                        }
+                    }
+                }
+            }
         }
-      }
-    }
 
-    stage('Generate Allure Report') {
-      steps {
-        sh "allure generate ${ALLURE_RESULTS_DIR} -o ${ALLURE_REPORT_DIR} --clean"
-      }
-    }
-
-    stage('Notify via Webhook') {
-      steps {
-        script {
-          def total = sh(script: "grep -c '<testcase' ${ALLURE_RESULTS_DIR}/*.xml || true", returnStdout: true).trim() as Integer
-          def failed = sh(script: "grep -c '<failure' ${ALLURE_RESULTS_DIR}/*.xml || true", returnStdout: true).trim() as Integer
-          def passed = total - failed
-          def passRate = total > 0 ? (passed * 100.0 / total).round(2) : 0
-          def reportUrl = "${env.BUILD_URL}allure" // 假設你有安裝 Allure Plugin
-
-          def message = [
-            text: "✅ *Postman 測試完成*\n總測試數: *${total}*\n通過: *${passed}*\n失敗: *${failed}*\n成功率: *${passRate}%*\n🔗 [查看報告](${reportUrl})"
-          ]
-
-          httpRequest(
-            httpMode: 'POST',
-            contentType: 'APPLICATION_JSON',
-            requestBody: groovy.json.JsonOutput.toJson(message),
-            url: "${WEBHOOK_URL}"
-          )
+        stage('Generate Allure Report') {
+            steps {
+                sh "allure generate ${ALLURE_RESULTS_DIR} -o ${ALLURE_REPORT_DIR} --clean"
+            }
         }
-      }
-    }
-  }
 
-  post {
-    always {
-      echo "Pipeline 完成"
+        stage('Notify via Webhook') {
+            steps {
+                script {
+                    def passed = sh(script: "grep -c '<testcase' ${ALLURE_RESULTS_DIR}/*.xml", returnStdout: true).trim()
+                    def failed = sh(script: "grep -c '<failure' ${ALLURE_RESULTS_DIR}/*.xml", returnStdout: true).trim()
+                    def total = passed.toInteger() + failed.toInteger()
+                    def ratio = total > 0 ? ((passed.toDouble() / total) * 100).round(2) : 0.0
+
+                    def msg = """
+                        {
+                          "text": "✅ 測試完成\n📊 成功率：${ratio}%\n✔️ 成功：${passed}\n❌ 失敗：${failed}\n🧪 總數：${total}"
+                        }
+                    """
+
+                    sh script: "curl -X POST -H 'Content-Type: application/json' -d '${msg}' '${WEBHOOK_URL}'"
+                }
+            }
+        }
     }
-  }
+
+    post {
+        always {
+            echo 'Pipeline 完成'
+        }
+    }
 }
