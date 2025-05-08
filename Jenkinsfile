@@ -185,6 +185,9 @@
 //     }
 // }
 
+// 在 pipeline 外宣告全域變數，避免作用域失效
+def results = []
+
 pipeline {
     agent any
 
@@ -192,19 +195,43 @@ pipeline {
         ENV_FILE = "/work/environments/DEV.postman_environment.json"
         COLLECTION_DIR = "/work/collections"
         REPORT_DIR = "/work/reports"
-        HTML_REPORT_DIR = "/work/reports/html"
-        ALLURE_RESULTS_DIR = "/work/reports/allure-results"
+        HTML_REPORT_DIR = "${REPORT_DIR}/html"
+        ALLURE_RESULTS_DIR = "${REPORT_DIR}/allure-results"
+        SUITES_JSON = "${REPORT_DIR}/suites.json"
+        WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/AAQAGYLH9k0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=HvPXUUnqPlN6c9HhB02kpWleJ86p2lLmDaq32-5t0gQ"
+        BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
+    }
+
+
+    // 在 pipeline 外宣告全域變數，避免作用域失效
+def results = []
+
+pipeline {
+    agent any
+
+    environment {
+        ENV_FILE = "/work/environments/DEV.postman_environment.json"
+        COLLECTION_DIR = "/work/collections"
+        REPORT_DIR = "/work/reports"
+        HTML_REPORT_DIR = "${REPORT_DIR}/html"
+        ALLURE_RESULTS_DIR = "${REPORT_DIR}/allure-results"
         SUITES_JSON = "${REPORT_DIR}/suites.json"
         WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/AAQAGYLH9k0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=HvPXUUnqPlN6c9HhB02kpWleJ86p2lLmDaq32-5t0gQ"
         BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
     }
 
     stages {
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+        
         stage('Prepare Folders') {
             steps {
                 sh '''
-                rm -rf "${REPORT_DIR}" "${ALLURE_RESULTS_DIR}" allure-results
-                mkdir -p "${REPORT_DIR}" "${HTML_REPORT_DIR}" "${ALLURE_RESULTS_DIR}" allure-results
+                    rm -rf "${REPORT_DIR}" "${ALLURE_RESULTS_DIR}" allure-results
+                    mkdir -p "${REPORT_DIR}" "${HTML_REPORT_DIR}" "${ALLURE_RESULTS_DIR}" allure-results
                 '''
             }
         }
@@ -219,8 +246,11 @@ pipeline {
                         "04申請展延憑證",
                         "06申請三級亂數"
                     ]
-
-                    def results = []
+                    
+                    // 重置 build 說明與結果
+                    currentBuild.description = ""
+                    currentBuild.result = "SUCCESS"
+                    def successCount = 0
 
                     collections.each { col ->
                         def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
@@ -242,10 +272,19 @@ pipeline {
                         )
 
                         def status = (result == 0) ? "passed" : "failed"
-                        results << ["collection": col, "status": status, "details": jsonReport]
+                        if (result == 0) {
+                            successCount++
+                            echo "✅ ${col} executed successfully."
+                        } else {
+                            echo "❌ ${col} failed."
+                        }
+                        // 將每個 collection 結果記錄到全域變數 results
+                        results << [collection: col, status: status, details: jsonReport]
                     }
 
-                    env.FAIL_LIST = results.findAll { it.status == "failed" }.collect { it.collection }.join(", ")
+                    env.FAIL_LIST = results.findAll { it.status == "failed" }
+                                            .collect { it.collection }
+                                            .join(", ")
                     env.SUCCESS_COUNT = results.findAll { it.status == "passed" }.size().toString()
                 }
             }
@@ -254,12 +293,12 @@ pipeline {
         stage('Merge JSON Results') {
             steps {
                 script {
+                    // 讀取各 collection 的 JSON 報告，合併成符合 suites 格式的 JSON 結構
                     def suiteResults = results.collect { test ->
                         def jsonContent = readFile(test.details).trim()
                         def jsonData = readJSON text: jsonContent
-                        return ["collection": test.collection, "status": test.status, "details": jsonData]
+                        return [collection: test.collection, status: test.status, details: jsonData]
                     }
-
                     def finalJSON = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(suiteResults))
                     writeFile file: SUITES_JSON, text: finalJSON
                     echo "✅ Allure Report 已整合至 suites.json"
@@ -276,7 +315,7 @@ pipeline {
             }
         }
     }
-
+    
     post {
         always {
             echo '🧹 清理臨時文件...'
@@ -363,6 +402,8 @@ pipeline {
         }
     }
 }
+
+
 
 
 
