@@ -35,46 +35,48 @@ pipeline {
       }
     }
 
-    stage('Run All Postman Collections') {
-      steps {
-        script {
-          def collections = [
-            "01申請廳主買域名",
-            "02申請刪除域名",
-            "03申請憑證",
-            "04申請展延憑證",
-            "06申請三級亂數"
-          ]
-          def anySuccess = false
+   stage('Run All Postman Collections') {
+        steps {
+            script {
+            def collections = [
+                "01申請廳主買域名",
+                "02申請刪除域名",
+                "03申請憑證",
+                "04申請展延憑證",
+                "06申請三級亂數"
+            ]
+            def anySuccess = false
 
-          collections.each { col ->
-            def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
-            def jsonReport = "${REPORT_DIR}/${col}_report.json"
-            def htmlReport = "${HTML_REPORT_DIR}/${col}.html"
-            def junitReport = "${ALLURE_RESULTS_DIR}/${col}_junit.xml"
+            collections.each { col ->
+                def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
+                def jsonReport = "${REPORT_DIR}/${col}_report.json"
+                def htmlReport = "${HTML_REPORT_DIR}/${col}.html"
+                def junitReport = "${ALLURE_RESULTS_DIR}/${col}_junit.xml"
 
-            def status = catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', returnStatus: true) {
-              echo "Running collection: ${col}"
-              sh """
-                newman run "${collectionFile}" \
-                  -e "${ENV_FILE}" \
-                  -r json,cli,html,junit \
-                  --reporter-json-export "${jsonReport}" \
-                  --reporter-html-export "${htmlReport}" \
-                  --reporter-junit-export "${junitReport}"
-              """
+                def status = catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE', returnStatus: true) {
+                echo "Running collection: ${col}"
+                sh """
+                    newman run "${collectionFile}" \
+                    -e "${ENV_FILE}" \
+                    -r json,cli,html,junit \
+                    --reporter-json-export "${jsonReport}" \
+                    --reporter-html-export "${htmlReport}" \
+                    --reporter-junit-export "${junitReport}"
+                """
+                }
+                if (status == 0) {
+                anySuccess = true
+                }
             }
-            if (status == 0) {
-              anySuccess = true
-            }
-          }
 
-          if (!anySuccess) {
-            error("All collections failed. Marking build as failed.")
-          }
+            if (!anySuccess) {
+                echo "❌ All collections failed. Marking build as failed, but continuing for report generation..."
+                currentBuild.result = 'FAILURE'
+            }
+            }
         }
-      }
     }
+
 
     stage('Merge JSON Results') {
       steps {
