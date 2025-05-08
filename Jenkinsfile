@@ -46,34 +46,34 @@
 //             def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
 //             def jsonReport = "${REPORT_DIR}/${col}_report.json"
 //             def htmlReport = "${HTML_REPORT_DIR}/${col}.html"
-//             def junitReport = "${ALLURE_RESULTS_DIR}/${col}_junit.xml"
+//             def allureReport = "${ALLURE_RESULTS_DIR}/${col}_allure.xml"
 
 //             echo "Running collection: ${col}"
 //             def result = sh (
 //               script: """
 //                 newman run "${collectionFile}" \
 //                   -e "${ENV_FILE}" \
-//                   -r json,cli,html,junit \
+//                   -r json,cli,html,allure \
 //                   --reporter-json-export "${jsonReport}" \
 //                   --reporter-html-export "${htmlReport}" \
-//                   --reporter-junit-export "${junitReport}"
+//                   --reporter-allure-export "${allureReport}"
 //               """,
 //               returnStatus: true
 //             )
 
 //             if (result == 0) {
 //               successCount++
-//               echo "✅ ${col} executed successfully."
+//               echo "✅ ${col} 執行成功."
 //             } else {
-//               echo "❌ ${col} failed."
+//               echo "❌ ${col} 執行失敗."
 //             }
 //           }
 
 //           if (successCount == 0) {
 //             currentBuild.result = "FAILURE"
-//             currentBuild.description = "❌ All collections failed"
+//             currentBuild.description = "❌ 所有集合執行失敗"
 //           } else {
-//             currentBuild.description = "✅ ${successCount} collections passed"
+//             currentBuild.description = "✅ ${successCount} 個集合通過"
 //           }
 //         }
 //       }
@@ -100,6 +100,9 @@
 //     stage('Prepare Allure Report Folder') {
 //       steps {
 //         sh '''
+//           # 清理上次构建的 Allure 结果文件夹
+//           rm -rf allure-results/*
+          
 //           mkdir -p allure-results
 //           cp ${ALLURE_RESULTS_DIR}/*.xml allure-results/ || true
 //         '''
@@ -117,15 +120,15 @@
 
 //   post {
 //     always {
-//       echo 'Cleaning up temp files...'
+//       echo '清理临时文件...'
 //     }
 
 //     failure {
-//       echo '❌ Build failed: All collections failed to run.'
+//       echo '❌ 構建失敗：所有集合執行失敗。'
 //     }
 
 //     success {
-//       echo '✅ Build succeeded with at least one passing collection.'
+//       echo '✅ 構建成功，至少有一个集合通過。'
 //     }
 //   }
 // }
@@ -153,7 +156,7 @@ pipeline {
         sh '''
           mkdir -p "${REPORT_DIR}"
           mkdir -p "${HTML_REPORT_DIR}"
-          mkdir -p "${ALLURE_RESULTS_DIR}"
+          rm -rf "${ALLURE_RESULTS_DIR}" && mkdir -p "${ALLURE_RESULTS_DIR}"
         '''
       }
     }
@@ -169,7 +172,6 @@ pipeline {
             "06申請三級亂數"
           ]
 
-          // 讓後面 post 判斷可存取這變數
           currentBuild.description = ""
           currentBuild.result = "SUCCESS"
           def successCount = 0
@@ -178,17 +180,18 @@ pipeline {
             def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
             def jsonReport = "${REPORT_DIR}/${col}_report.json"
             def htmlReport = "${HTML_REPORT_DIR}/${col}.html"
-            def allureReport = "${ALLURE_RESULTS_DIR}/${col}_allure.xml"
+            def allureColDir = "${ALLURE_RESULTS_DIR}/${col}"
 
             echo "Running collection: ${col}"
             def result = sh (
               script: """
+                mkdir -p "${allureColDir}"
                 newman run "${collectionFile}" \
                   -e "${ENV_FILE}" \
                   -r json,cli,html,allure \
                   --reporter-json-export "${jsonReport}" \
                   --reporter-html-export "${htmlReport}" \
-                  --reporter-allure-export "${allureReport}"
+                  --reporter-allure-export "${allureColDir}"
               """,
               returnStatus: true
             )
@@ -232,11 +235,11 @@ pipeline {
     stage('Prepare Allure Report Folder') {
       steps {
         sh '''
-          # 清理上次构建的 Allure 结果文件夹
           rm -rf allure-results/*
-          
           mkdir -p allure-results
-          cp ${ALLURE_RESULTS_DIR}/*.xml allure-results/ || true
+
+          # 合併所有子資料夾中的 Allure JSON 檔
+          find ${ALLURE_RESULTS_DIR} -type f -name '*.json' -exec cp {} allure-results/ \\;
         '''
       }
     }
@@ -252,7 +255,7 @@ pipeline {
 
   post {
     always {
-      echo '清理临时文件...'
+      echo '🧹 清理臨時文件...'
     }
 
     failure {
@@ -260,7 +263,7 @@ pipeline {
     }
 
     success {
-      echo '✅ 構建成功，至少有一个集合通過。'
+      echo '✅ 構建成功，至少有一個集合通過。'
     }
   }
 }
