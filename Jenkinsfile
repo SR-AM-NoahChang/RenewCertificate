@@ -37,24 +37,35 @@ pipeline {
             "06申請三級亂數"
           ]
 
+          def successCount = 0
+
           collections.each { col ->
             def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
             def jsonReport = "${REPORT_DIR}/${col}_report.json"
             def htmlReport = "${HTML_REPORT_DIR}/${col}.html"
-            def junitReport = "${ALLURE_RESULTS_DIR}/${col}_junit.xml"
+            def allureOutputDir = "${ALLURE_RESULTS_DIR}/${col}"
 
-            // 每個 collection 獨立包裝錯誤容忍機制
-            catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+            // 容錯但累計成功
+            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
               echo "Running collection: ${col}"
               sh """
+                mkdir -p "${allureOutputDir}"
                 newman run "${collectionFile}" \
                   -e "${ENV_FILE}" \
-                  -r json,cli,html,junit \
+                  -r cli,json,html,allure \
                   --reporter-json-export "${jsonReport}" \
                   --reporter-html-export "${htmlReport}" \
-                  --reporter-junit-export "${junitReport}"
+                  --reporter-allure-export "${allureOutputDir}"
               """
+              successCount++
             }
+          }
+
+          // 判斷是否全數失敗
+          if (successCount == 0) {
+            error("All collections failed. Marking build as failed.")
+          } else {
+            echo "${successCount} collection(s) ran successfully."
           }
         }
       }
@@ -64,7 +75,7 @@ pipeline {
       steps {
         echo 'Merging all JSON results into one file...'
         sh '''
-          jq -s '.' ${REPORT_DIR}/*_report.json > ${REPORT_DIR}/merged_report.json
+          jq -s '.' ${REPORT_DIR}/*_report.json > ${REPORT_DIR}/merged_report.json || true
         '''
       }
     }
@@ -81,6 +92,7 @@ pipeline {
 
     stage('Allure Report') {
       steps {
+        // 請確保 Jenkins 有安裝 Allure plugin 且 CLI 可執行
         allure includeProperties: false,
                jdk: '',
                results: [[path: "${ALLURE_RESULTS_DIR}"]]
@@ -94,11 +106,11 @@ pipeline {
     }
 
     success {
-      echo 'All collections ran successfully (with individual error tolerance).'
+      echo 'Build succeeded: Some or all collections ran successfully.'
     }
 
     failure {
-      echo 'One or more collections failed, check reports for details.'
+      echo 'Build failed: All collections failed to run.'
     }
   }
 }
