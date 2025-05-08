@@ -37,6 +37,9 @@ pipeline {
             "06申請三級亂數"
           ]
 
+          // 讓後面 post 判斷可存取這變數
+          currentBuild.description = ""
+          currentBuild.result = "SUCCESS"
           def successCount = 0
 
           collections.each { col ->
@@ -67,9 +70,10 @@ pipeline {
           }
 
           if (successCount == 0) {
-            error("All collections failed. Marking build as failed.")
+            currentBuild.result = "FAILURE"
+            currentBuild.description = "❌ All collections failed"
           } else {
-            echo "${successCount} collection(s) ran successfully."
+            currentBuild.description = "✅ ${successCount} collections passed"
           }
         }
       }
@@ -77,9 +81,8 @@ pipeline {
 
     stage('Merge JSON Results') {
       steps {
-        echo 'Merging all JSON results into one file...'
         sh '''
-          jq -s '.' ${REPORT_DIR}/*_report.json > ${REPORT_DIR}/merged_report.json
+          jq -s '.' ${REPORT_DIR}/*_report.json > ${REPORT_DIR}/merged_report.json || true
         '''
       }
     }
@@ -117,12 +120,12 @@ pipeline {
       echo 'Cleaning up temp files...'
     }
 
-    success {
-      echo '✅ Build succeeded with at least one passing collection.'
-    }
-
     failure {
       echo '❌ Build failed: All collections failed to run.'
+    }
+
+    success {
+      echo '✅ Build succeeded with at least one passing collection.'
     }
   }
 }
