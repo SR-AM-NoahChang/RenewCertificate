@@ -185,10 +185,11 @@
 //     }
 // }
 
-//https://voyager.postman.com/logo/postman-logo-orange-stacked.svg
 
-// 在 pipeline 外宣告全域變數，避免作用域失效
-def results = []
+
+// 使用 @Field 注解声明全局变量，以便在各个阶段共享
+import groovy.transform.Field
+@Field def results = []
 
 pipeline {
     agent any
@@ -213,6 +214,7 @@ pipeline {
         stage('Set Build Timestamp') {
             steps {
                 script {
+                    // 取得当前时间，存入环境变量 BUILD_TIME
                     env.BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
                 }
             }
@@ -249,7 +251,7 @@ pipeline {
                         def allureReport = "${ALLURE_RESULTS_DIR}/${col}_allure.xml"
                         
                         echo "▶️ Running collection: ${col}"
-                        def result = sh(
+                        def resultStatus = sh(
                             script: """
                                 newman run "${collectionFile}" \\
                                     -e "${ENV_FILE}" \\
@@ -261,13 +263,14 @@ pipeline {
                             returnStatus: true
                         )
                         
-                        def status = (result == 0) ? "passed" : "failed"
-                        if (result == 0) {
+                        def status = (resultStatus == 0) ? "passed" : "failed"
+                        if (resultStatus == 0) {
                             successCount++
                             echo "✅ ${col} executed successfully."
                         } else {
                             echo "❌ ${col} failed."
                         }
+                        // 将每个 collection 的结果记录到全局变量 results 中
                         results << [collection: col, status: status, details: jsonReport]
                     }
                     
@@ -316,7 +319,7 @@ pipeline {
       "header": {
         "title": "❌ 測試失敗通知",
         "subtitle": "Jenkins Pipeline 執行失敗",
-        "imageUrl": "https://voyager.postman.com/logo/postman-logo-orange-stacked.svg",
+        "imageUrl": "https://www.jenkins.io/images/logos/jenkins/jenkins.png",
         "imageStyle": "IMAGE"
       },
       "sections": [
