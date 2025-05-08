@@ -6,7 +6,7 @@
 //         COLLECTION_DIR = "/work/collections"
 //         REPORT_DIR = "/work/reports"
 //         ALLURE_RESULTS_DIR = "${REPORT_DIR}/allure-results"
-//         WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/AAQAGYLH9k0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=HvPXUUnqPlN6c9HhB02kpWleJ86p2lLmDaq32-5t0gQ"
+//         WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/..."
 //         BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
 //     }
 
@@ -47,13 +47,14 @@
 //                         echo "Running collection: ${col}"
 //                         def result = sh (
 //                             script: """
-//                             newman run "${collectionFile}" \
-//                                 -e "${ENV_FILE}" \
-//                                 -r junit \
+//                             newman run "${collectionFile}" \\
+//                                 -e "${ENV_FILE}" \\
+//                                 -r junit \\
 //                                 --reporter-junit-export "${junitReport}"
 
-//                             # 確保 JUnit XML 測試集名稱符合 Allure 的 Suite 規則
-//                             sed -i 's|<testsuite name=.*|<testsuite name="${col}"|' "${junitReport}"
+//                             # 調整 testsuite 和 classname，讓 Allure Report 以 Collection 為分組基準
+//                             sed -i 's|<testsuite name=".*"|<testsuite name="${col}"|' "${junitReport}"
+//                             sed -i 's|classname=".*"|classname="${col}"|' "${junitReport}"
 //                             """,
 //                             returnStatus: true
 //                         )
@@ -99,7 +100,6 @@
 
 //         failure {
 //             script {
-//                 def msg = "❌ Jenkins 測試失敗\n失敗集合：${env.FAIL_LIST ?: '無'}"
 //                 def payload = """
 //                 {
 //                   "cards": [
@@ -141,7 +141,6 @@
 
 //         success {
 //             script {
-//                 def msg = "✅ Jenkins 測試完成，共通過 ${env.SUCCESS_COUNT} 個集合"
 //                 def payload = """
 //                 {
 //                   "cards": [
@@ -184,6 +183,7 @@
 // }
 
 
+
 pipeline {
     agent any
 
@@ -192,6 +192,7 @@ pipeline {
         COLLECTION_DIR = "/work/collections"
         REPORT_DIR = "/work/reports"
         ALLURE_RESULTS_DIR = "${REPORT_DIR}/allure-results"
+        ALLURE_REPORT_DIR = "${REPORT_DIR}/allure-report"
         WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/..."
         BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
     }
@@ -206,8 +207,8 @@ pipeline {
         stage('Prepare Folders') {
             steps {
                 sh '''
-                rm -rf "${REPORT_DIR}" "${ALLURE_RESULTS_DIR}"
-                mkdir -p "${ALLURE_RESULTS_DIR}"
+                rm -rf "${REPORT_DIR}" "${ALLURE_RESULTS_DIR}" allure-results
+                mkdir -p "${ALLURE_RESULTS_DIR}" allure-results "${REPORT_DIR}/html"
                 '''
             }
         }
@@ -227,20 +228,23 @@ pipeline {
                     def failList = []
 
                     collections.each { col ->
+                        def sanitizedCol = col.replaceAll(/\s+/, "_")
                         def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
-                        def junitReport = "${ALLURE_RESULTS_DIR}/${col}_junit.xml"
+                        def junitReport = "${ALLURE_RESULTS_DIR}/${sanitizedCol}_junit.xml"
+                        def htmlReport = "${REPORT_DIR}/html/${sanitizedCol}.html"
 
                         echo "Running collection: ${col}"
                         def result = sh (
                             script: """
-                            newman run "${collectionFile}" \\
-                                -e "${ENV_FILE}" \\
-                                -r junit \\
-                                --reporter-junit-export "${junitReport}"
+                            newman run \"${collectionFile}\" \\
+                                -e \"${ENV_FILE}\" \\
+                                -r cli,json,html,junit \\
+                                --reporter-json-export \"${REPORT_DIR}/${sanitizedCol}_report.json\" \\
+                                --reporter-html-export \"${htmlReport}\" \\
+                                --reporter-junit-export \"${junitReport}\"
 
-                            # 調整 testsuite 和 classname，讓 Allure Report 以 Collection 為分組基準
-                            sed -i 's|<testsuite name=".*"|<testsuite name="${col}"|' "${junitReport}"
-                            sed -i 's|classname=".*"|classname="${col}"|' "${junitReport}"
+                            sed -i 's|<testsuite name=\".*\"|<testsuite name=\"${col}\"|' \"${junitReport}\"
+                            sed -i 's|classname=\".*\"|classname=\"${col}\"|' \"${junitReport}\"
                             """,
                             returnStatus: true
                         )
@@ -260,12 +264,11 @@ pipeline {
             }
         }
 
-        stage('Prepare Allure Report') {
+        stage('Generate Allure Report') {
             steps {
                 sh '''
-                rm -rf allure-results/*
-                mkdir -p allure-results
                 cp ${ALLURE_RESULTS_DIR}/*.xml allure-results/
+                allure generate --clean allure-results -o ${ALLURE_REPORT_DIR}
                 '''
             }
         }
@@ -367,4 +370,3 @@ pipeline {
         }
     }
 }
-
