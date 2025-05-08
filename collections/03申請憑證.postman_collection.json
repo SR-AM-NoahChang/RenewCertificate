@@ -496,8 +496,7 @@
 					},
 					{
 						"key": "Cookie",
-						"value": "G_ENABLED_IDPS=google; PHPSESSID=f4403c6f199c8d0548773115342911f2; G_AUTHUSER_H=0",
-						"disabled": true
+						"value": "G_ENABLED_IDPS=google; PHPSESSID=ee52af1101e0ef1eaf541c70f36c4cca; G_AUTHUSER_H=0"
 					}
 				],
 				"body": {
