@@ -180,18 +180,17 @@ pipeline {
             def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
             def jsonReport = "${REPORT_DIR}/${col}_report.json"
             def htmlReport = "${HTML_REPORT_DIR}/${col}.html"
-            def allureColDir = "${ALLURE_RESULTS_DIR}/${col}"
+            def junitReport = "${ALLURE_RESULTS_DIR}/${col}_junit.xml"
 
             echo "Running collection: ${col}"
             def result = sh (
               script: """
-                mkdir -p "${allureColDir}"
                 newman run "${collectionFile}" \
                   -e "${ENV_FILE}" \
-                  -r json,cli,html,allure \
+                  -r cli,json,html,junit \
                   --reporter-json-export "${jsonReport}" \
                   --reporter-html-export "${htmlReport}" \
-                  --reporter-allure-export "${allureColDir}"
+                  --reporter-junit-export "${junitReport}"
               """,
               returnStatus: true
             )
@@ -237,9 +236,7 @@ pipeline {
         sh '''
           rm -rf allure-results/*
           mkdir -p allure-results
-
-          # 合併所有子資料夾中的 Allure JSON 檔
-          find ${ALLURE_RESULTS_DIR} -type f -name '*.json' -exec cp {} allure-results/ \\;
+          cp ${ALLURE_RESULTS_DIR}/*.xml allure-results/ || true
         '''
       }
     }
