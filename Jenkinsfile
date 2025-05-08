@@ -6,6 +6,7 @@
 //         COLLECTION_DIR = "/work/collections"
 //         REPORT_DIR = "/work/reports"
 //         ALLURE_RESULTS_DIR = "${REPORT_DIR}/allure-results"
+//         ALLURE_REPORT_DIR = "${REPORT_DIR}/allure-report"
 //         WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/..."
 //         BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
 //     }
@@ -20,8 +21,8 @@
 //         stage('Prepare Folders') {
 //             steps {
 //                 sh '''
-//                 rm -rf "${REPORT_DIR}" "${ALLURE_RESULTS_DIR}"
-//                 mkdir -p "${ALLURE_RESULTS_DIR}"
+//                 rm -rf "${REPORT_DIR}" "${ALLURE_RESULTS_DIR}" allure-results
+//                 mkdir -p "${ALLURE_RESULTS_DIR}" allure-results "${REPORT_DIR}/html"
 //                 '''
 //             }
 //         }
@@ -41,20 +42,23 @@
 //                     def failList = []
 
 //                     collections.each { col ->
+//                         def sanitizedCol = col.replaceAll(/\s+/, "_")
 //                         def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
-//                         def junitReport = "${ALLURE_RESULTS_DIR}/${col}_junit.xml"
+//                         def junitReport = "${ALLURE_RESULTS_DIR}/${sanitizedCol}_junit.xml"
+//                         def htmlReport = "${REPORT_DIR}/html/${sanitizedCol}.html"
 
 //                         echo "Running collection: ${col}"
 //                         def result = sh (
 //                             script: """
-//                             newman run "${collectionFile}" \\
-//                                 -e "${ENV_FILE}" \\
-//                                 -r junit \\
-//                                 --reporter-junit-export "${junitReport}"
+//                             newman run \"${collectionFile}\" \\
+//                                 -e \"${ENV_FILE}\" \\
+//                                 -r cli,json,html,junit \\
+//                                 --reporter-json-export \"${REPORT_DIR}/${sanitizedCol}_report.json\" \\
+//                                 --reporter-html-export \"${htmlReport}\" \\
+//                                 --reporter-junit-export \"${junitReport}\"
 
-//                             # 調整 testsuite 和 classname，讓 Allure Report 以 Collection 為分組基準
-//                             sed -i 's|<testsuite name=".*"|<testsuite name="${col}"|' "${junitReport}"
-//                             sed -i 's|classname=".*"|classname="${col}"|' "${junitReport}"
+//                             sed -i 's|<testsuite name=\".*\"|<testsuite name=\"${col}\"|' \"${junitReport}\"
+//                             sed -i 's|classname=\".*\"|classname=\"${col}\"|' \"${junitReport}\"
 //                             """,
 //                             returnStatus: true
 //                         )
@@ -74,12 +78,11 @@
 //             }
 //         }
 
-//         stage('Prepare Allure Report') {
+//         stage('Generate Allure Report') {
 //             steps {
 //                 sh '''
-//                 rm -rf allure-results/*
-//                 mkdir -p allure-results
 //                 cp ${ALLURE_RESULTS_DIR}/*.xml allure-results/
+//                 allure generate --clean allure-results -o ${ALLURE_REPORT_DIR}
 //                 '''
 //             }
 //         }
@@ -182,8 +185,6 @@
 //     }
 // }
 
-
-
 pipeline {
     agent any
 
@@ -192,7 +193,6 @@ pipeline {
         COLLECTION_DIR = "/work/collections"
         REPORT_DIR = "/work/reports"
         ALLURE_RESULTS_DIR = "${REPORT_DIR}/allure-results"
-        ALLURE_REPORT_DIR = "${REPORT_DIR}/allure-report"
         WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/..."
         BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
     }
@@ -208,7 +208,7 @@ pipeline {
             steps {
                 sh '''
                 rm -rf "${REPORT_DIR}" "${ALLURE_RESULTS_DIR}" allure-results
-                mkdir -p "${ALLURE_RESULTS_DIR}" allure-results "${REPORT_DIR}/html"
+                mkdir -p "${ALLURE_RESULTS_DIR}" "${REPORT_DIR}/html" allure-results
                 '''
             }
         }
@@ -228,23 +228,29 @@ pipeline {
                     def failList = []
 
                     collections.each { col ->
-                        def sanitizedCol = col.replaceAll(/\s+/, "_")
                         def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
-                        def junitReport = "${ALLURE_RESULTS_DIR}/${sanitizedCol}_junit.xml"
-                        def htmlReport = "${REPORT_DIR}/html/${sanitizedCol}.html"
+                        def junitReport = "${ALLURE_RESULTS_DIR}/${col}_junit.xml"
+                        def htmlReport = "${REPORT_DIR}/html/${col}.html"
+                        def jsonReport = "${REPORT_DIR}/${col}_report.json"
 
-                        echo "Running collection: ${col}"
+                        echo "▶️ Running collection: ${col}"
                         def result = sh (
                             script: """
-                            newman run \"${collectionFile}\" \\
-                                -e \"${ENV_FILE}\" \\
-                                -r cli,json,html,junit \\
-                                --reporter-json-export \"${REPORT_DIR}/${sanitizedCol}_report.json\" \\
-                                --reporter-html-export \"${htmlReport}\" \\
-                                --reporter-junit-export \"${junitReport}\"
+                                newman run "${collectionFile}" \\
+                                    -e "${ENV_FILE}" \\
+                                    -r cli,json,html,junit \\
+                                    --reporter-json-export "${jsonReport}" \\
+                                    --reporter-html-export "${htmlReport}" \\
+                                    --reporter-junit-export "${junitReport}"
 
-                            sed -i 's|<testsuite name=\".*\"|<testsuite name=\"${col}\"|' \"${junitReport}\"
-                            sed -i 's|classname=\".*\"|classname=\"${col}\"|' \"${junitReport}\"
+                                # Cross-platform sed to fix suite and classname for Allure grouping
+                                if [[ "\$(uname)" == "Darwin" ]]; then
+                                  sed -i '' 's|<testsuite name=.*|<testsuite name="${col}"|' "${junitReport}"
+                                  sed -i '' 's|classname=.*|classname="${col}"|' "${junitReport}"
+                                else
+                                  sed -i 's|<testsuite name=.*|<testsuite name="${col}"|' "${junitReport}"
+                                  sed -i 's|classname=.*|classname="${col}"|' "${junitReport}"
+                                fi
                             """,
                             returnStatus: true
                         )
@@ -264,11 +270,10 @@ pipeline {
             }
         }
 
-        stage('Generate Allure Report') {
+        stage('Prepare Allure Report Folder') {
             steps {
                 sh '''
-                cp ${ALLURE_RESULTS_DIR}/*.xml allure-results/
-                allure generate --clean allure-results -o ${ALLURE_REPORT_DIR}
+                    cp ${ALLURE_RESULTS_DIR}/*.xml allure-results/ || true
                 '''
             }
         }
@@ -278,6 +283,15 @@ pipeline {
                 allure includeProperties: false,
                        jdk: '',
                        results: [[path: 'allure-results']]
+            }
+        }
+
+        stage('Generate Static Allure Report') {
+            steps {
+                sh '''
+                    rm -rf ${REPORT_DIR}/allure-report
+                    allure generate allure-results -o ${REPORT_DIR}/allure-report || echo "Allure report generation warning ignored"
+                '''
             }
         }
     }
@@ -322,8 +336,7 @@ pipeline {
                 }
                 """
                 sh """
-                curl -X POST -H 'Content-Type: application/json' \
-                -d '${payload}' "${WEBHOOK_URL}"
+                curl -X POST -H 'Content-Type: application/json' -d '${payload}' "${WEBHOOK_URL}"
                 """
             }
         }
@@ -363,8 +376,7 @@ pipeline {
                 }
                 """
                 sh """
-                curl -X POST -H 'Content-Type: application/json' \
-                -d '${payload}' "${WEBHOOK_URL}"
+                curl -X POST -H 'Content-Type: application/json' -d '${payload}' "${WEBHOOK_URL}"
                 """
             }
         }
