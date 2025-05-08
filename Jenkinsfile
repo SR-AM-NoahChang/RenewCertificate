@@ -195,17 +195,17 @@ pipeline {
 
             if (result == 0) {
               successCount++
-              echo "✅ ${col} executed successfully."
+              echo "✅ ${col} 執行成功."
             } else {
-              echo "❌ ${col} failed."
+              echo "❌ ${col} 執行失敗."
             }
           }
 
           if (successCount == 0) {
             currentBuild.result = "FAILURE"
-            currentBuild.description = "❌ All collections failed"
+            currentBuild.description = "❌ 所有集合執行失敗"
           } else {
-            currentBuild.description = "✅ ${successCount} collections passed"
+            currentBuild.description = "✅ ${successCount} 個集合通過"
           }
         }
       }
@@ -232,6 +232,9 @@ pipeline {
     stage('Prepare Allure Report Folder') {
       steps {
         sh '''
+          # 清理上次构建的 Allure 结果文件夹
+          rm -rf allure-results/*
+          
           mkdir -p allure-results
           cp ${ALLURE_RESULTS_DIR}/*.xml allure-results/ || true
         '''
@@ -249,15 +252,15 @@ pipeline {
 
   post {
     always {
-      echo 'Cleaning up temp files...'
+      echo '清理临时文件...'
     }
 
     failure {
-      echo '❌ Build failed: All collections failed to run.'
+      echo '❌ 構建失敗：所有集合執行失敗。'
     }
 
     success {
-      echo '✅ Build succeeded with at least one passing collection.'
+      echo '✅ 構建成功，至少有一个集合通過。'
     }
   }
 }
