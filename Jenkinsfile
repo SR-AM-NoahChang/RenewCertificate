@@ -199,25 +199,6 @@ pipeline {
         ALLURE_RESULTS_DIR = "${REPORT_DIR}/allure-results"
         SUITES_JSON = "${REPORT_DIR}/suites.json"
         WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/AAQAGYLH9k0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=HvPXUUnqPlN6c9HhB02kpWleJ86p2lLmDaq32-5t0gQ"
-        BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
-    }
-
-
-    // 在 pipeline 外宣告全域變數，避免作用域失效
-def results = []
-
-pipeline {
-    agent any
-
-    environment {
-        ENV_FILE = "/work/environments/DEV.postman_environment.json"
-        COLLECTION_DIR = "/work/collections"
-        REPORT_DIR = "/work/reports"
-        HTML_REPORT_DIR = "${REPORT_DIR}/html"
-        ALLURE_RESULTS_DIR = "${REPORT_DIR}/allure-results"
-        SUITES_JSON = "${REPORT_DIR}/suites.json"
-        WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/AAQAGYLH9k0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=HvPXUUnqPlN6c9HhB02kpWleJ86p2lLmDaq32-5t0gQ"
-        // 移除 BUILD_TIME，在後續 stage 中設定
     }
 
     stages {
@@ -230,7 +211,7 @@ pipeline {
         stage('Set Build Timestamp') {
             steps {
                 script {
-                    // 使用 script 區塊來取得時間並賦予 env 變數
+                    // 取得當前時間，並存入環境變數 BUILD_TIME
                     env.BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
                 }
             }
@@ -244,7 +225,7 @@ pipeline {
                 '''
             }
         }
-
+        
         stage('Run All Postman Collections') {
             steps {
                 script {
@@ -256,7 +237,6 @@ pipeline {
                         "06申請三級亂數"
                     ]
                     
-                    // 重置 build 說明與結果
                     currentBuild.description = ""
                     currentBuild.result = "SUCCESS"
                     def successCount = 0
@@ -266,20 +246,20 @@ pipeline {
                         def jsonReport = "${REPORT_DIR}/${col}_report.json"
                         def htmlReport = "${HTML_REPORT_DIR}/${col}.html"
                         def allureReport = "${ALLURE_RESULTS_DIR}/${col}_allure.xml"
-
+                        
                         echo "▶️ Running collection: ${col}"
                         def result = sh(
-                           script: """
+                            script: """
                                 newman run "${collectionFile}" \\
                                     -e "${ENV_FILE}" \\
                                     -r cli,json,html,junit,allure \\
                                     --reporter-json-export "${jsonReport}" \\
                                     --reporter-html-export "${htmlReport}" \\
                                     --reporter-allure-export "${allureReport}"
-                           """,
-                           returnStatus: true
+                            """,
+                            returnStatus: true
                         )
-
+                        
                         def status = (result == 0) ? "passed" : "failed"
                         if (result == 0) {
                             successCount++
@@ -287,7 +267,6 @@ pipeline {
                         } else {
                             echo "❌ ${col} failed."
                         }
-                        // 將每個 collection 結果記錄到全域變數 results 中
                         results << [collection: col, status: status, details: jsonReport]
                     }
                     
@@ -302,7 +281,6 @@ pipeline {
         stage('Merge JSON Results') {
             steps {
                 script {
-                    // 依序讀取並合併各 collection 的 JSON 報告內容，轉換成 suites 格式
                     def suiteResults = results.collect { test ->
                         def jsonContent = readFile(test.details).trim()
                         def jsonData = readJSON text: jsonContent
@@ -323,91 +301,89 @@ pipeline {
                 '''
             }
         }
-    }
+    } // end stages
 
     post {
         always {
             echo '🧹 清理臨時文件...'
         }
-
         failure {
             script {
-                def payload = """
-                {
-                  "cards": [
-                    {
-                      "header": {
-                        "title": "❌ 測試失敗通知",
-                        "subtitle": "Jenkins Pipeline 執行失敗",
-                        "imageUrl": "https://www.jenkins.io/images/logos/jenkins/jenkins.png",
-                        "imageStyle": "IMAGE"
-                      },
-                      "sections": [
-                        {
-                          "widgets": [
-                            {
-                              "keyValue": {
-                                "topLabel": "執行時間",
-                                "content": "${env.BUILD_TIME}"
-                              }
-                            },
-                            {
-                              "keyValue": {
-                                "topLabel": "失敗集合",
-                                "content": "${env.FAIL_LIST}"
-                              }
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-                """
+                def payload = """\
+{
+  "cards": [
+    {
+      "header": {
+        "title": "❌ 測試失敗通知",
+        "subtitle": "Jenkins Pipeline 執行失敗",
+        "imageUrl": "https://www.jenkins.io/images/logos/jenkins/jenkins.png",
+        "imageStyle": "IMAGE"
+      },
+      "sections": [
+        {
+          "widgets": [
+            {
+              "keyValue": {
+                "topLabel": "執行時間",
+                "content": "${env.BUILD_TIME}"
+              }
+            },
+            {
+              "keyValue": {
+                "topLabel": "失敗集合",
+                "content": "${env.FAIL_LIST}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}\
+"""
                 sh """
-                curl -X POST -H 'Content-Type: application/json' -d '${payload}' "${WEBHOOK_URL}"
+                    curl -X POST -H 'Content-Type: application/json' -d '${payload}' "${WEBHOOK_URL}"
                 """
             }
         }
-
         success {
             script {
-                def payload = """
-                {
-                  "cards": [
-                    {
-                      "header": {
-                        "title": "✅ 測試完成通知",
-                        "subtitle": "Jenkins Pipeline 執行成功",
-                        "imageUrl": "https://www.jenkins.io/images/logos/jenkins/jenkins.png",
-                        "imageStyle": "IMAGE"
-                      },
-                      "sections": [
-                        {
-                          "widgets": [
-                            {
-                              "keyValue": {
-                                "topLabel": "執行時間",
-                                "content": "${env.BUILD_TIME}"
-                              }
-                            },
-                            {
-                              "keyValue": {
-                                "topLabel": "成功集合數",
-                                "content": "${env.SUCCESS_COUNT}"
-                              }
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-                """
+                def payload = """\
+{
+  "cards": [
+    {
+      "header": {
+        "title": "✅ 測試完成通知",
+        "subtitle": "Jenkins Pipeline 執行成功",
+        "imageUrl": "https://www.jenkins.io/images/logos/jenkins/jenkins.png",
+        "imageStyle": "IMAGE"
+      },
+      "sections": [
+        {
+          "widgets": [
+            {
+              "keyValue": {
+                "topLabel": "執行時間",
+                "content": "${env.BUILD_TIME}"
+              }
+            },
+            {
+              "keyValue": {
+                "topLabel": "成功集合數",
+                "content": "${env.SUCCESS_COUNT}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}\
+"""
                 sh """
-                curl -X POST -H 'Content-Type: application/json' -d '${payload}' "${WEBHOOK_URL}"
+                    curl -X POST -H 'Content-Type: application/json' -d '${payload}' "${WEBHOOK_URL}"
                 """
             }
         }
-    }
-}
+    } // end post
+} // end pipeline
