@@ -217,13 +217,22 @@ pipeline {
         ALLURE_RESULTS_DIR = "${REPORT_DIR}/allure-results"
         SUITES_JSON = "${REPORT_DIR}/suites.json"
         WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/AAQAGYLH9k0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=HvPXUUnqPlN6c9HhB02kpWleJ86p2lLmDaq32-5t0gQ"
-        BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
+        // 移除 BUILD_TIME，在後續 stage 中設定
     }
 
     stages {
         stage('Checkout Code') {
             steps {
                 checkout scm
+            }
+        }
+        
+        stage('Set Build Timestamp') {
+            steps {
+                script {
+                    // 使用 script 區塊來取得時間並賦予 env 變數
+                    env.BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
+                }
             }
         }
         
@@ -259,16 +268,16 @@ pipeline {
                         def allureReport = "${ALLURE_RESULTS_DIR}/${col}_allure.xml"
 
                         echo "▶️ Running collection: ${col}"
-                        def result = sh (
-                            script: """
+                        def result = sh(
+                           script: """
                                 newman run "${collectionFile}" \\
                                     -e "${ENV_FILE}" \\
                                     -r cli,json,html,junit,allure \\
                                     --reporter-json-export "${jsonReport}" \\
                                     --reporter-html-export "${htmlReport}" \\
                                     --reporter-allure-export "${allureReport}"
-                            """,
-                            returnStatus: true
+                           """,
+                           returnStatus: true
                         )
 
                         def status = (result == 0) ? "passed" : "failed"
@@ -278,10 +287,10 @@ pipeline {
                         } else {
                             echo "❌ ${col} failed."
                         }
-                        // 將每個 collection 結果記錄到全域變數 results
+                        // 將每個 collection 結果記錄到全域變數 results 中
                         results << [collection: col, status: status, details: jsonReport]
                     }
-
+                    
                     env.FAIL_LIST = results.findAll { it.status == "failed" }
                                             .collect { it.collection }
                                             .join(", ")
@@ -289,11 +298,11 @@ pipeline {
                 }
             }
         }
-
+        
         stage('Merge JSON Results') {
             steps {
                 script {
-                    // 讀取各 collection 的 JSON 報告，合併成符合 suites 格式的 JSON 結構
+                    // 依序讀取並合併各 collection 的 JSON 報告內容，轉換成 suites 格式
                     def suiteResults = results.collect { test ->
                         def jsonContent = readFile(test.details).trim()
                         def jsonData = readJSON text: jsonContent
@@ -305,7 +314,7 @@ pipeline {
                 }
             }
         }
-
+        
         stage('Generate Static Allure Report') {
             steps {
                 sh '''
@@ -315,7 +324,7 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             echo '🧹 清理臨時文件...'
@@ -339,7 +348,7 @@ pipeline {
                             {
                               "keyValue": {
                                 "topLabel": "執行時間",
-                                "content": "${BUILD_TIME}"
+                                "content": "${env.BUILD_TIME}"
                               }
                             },
                             {
@@ -379,7 +388,7 @@ pipeline {
                             {
                               "keyValue": {
                                 "topLabel": "執行時間",
-                                "content": "${BUILD_TIME}"
+                                "content": "${env.BUILD_TIME}"
                               }
                             },
                             {
@@ -402,8 +411,3 @@ pipeline {
         }
     }
 }
-
-
-
-
-
