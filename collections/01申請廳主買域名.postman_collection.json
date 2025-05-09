@@ -34,8 +34,8 @@
 							"pm.collectionVariables.set(\"PD_WORKFLOW_ID\", workflowId);",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -117,8 +117,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); ",
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); ",
 							"",
 							""
 						],
@@ -226,8 +226,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -284,8 +284,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -350,8 +350,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}

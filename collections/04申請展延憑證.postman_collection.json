@@ -34,8 +34,8 @@
 							"pm.collectionVariables.set(\"PD_WORKFLOW_ID\", workflowId);",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -101,7 +101,7 @@
 							"pm.test(\"Validate workflow_id is correct\", function() {",
 							"    var responseJson = pm.response.json();  ",
 							"    var expectedWorkflowId = pm.variables.get(\"PD_WORKFLOW_ID\"); ",
-							"    pm.expect(String(responseJson.workflow_id).to.eql(String(expectedWorkflowId));",
+							"    pm.expect(String(responseJson.workflow_id)).to.eql(String(expectedWorkflowId));",
 							"});",
 							"",
 							"//域名欄位檢查",
@@ -117,9 +117,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); ",
-							"",
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); ",
 							""
 						],
 						"type": "text/javascript",
@@ -226,8 +225,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); ",
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); ",
 							""
 						],
 						"type": "text/javascript",
@@ -285,8 +284,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -351,8 +350,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -417,8 +416,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000);  "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -520,8 +519,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -818,8 +817,8 @@
 							"pm.collectionVariables.set(\"PC_WORKFLOW_ID\", workflowId);",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -904,8 +903,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1012,8 +1011,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1070,8 +1069,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1135,8 +1134,8 @@
 							"    pm.response.to.have.status(204);  // 檢查 HTTP 狀態碼是否為 204",
 							"});",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1200,8 +1199,8 @@
 							"    pm.response.to.have.status(200);  // 檢查 HTTP 狀態碼是否為 200",
 							"});",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1452,8 +1451,8 @@
 							"    pm.response.to.have.status(200);  // 檢查 HTTP 狀態碼是否為 200",
 							"});",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1565,8 +1564,8 @@
 							"var workflowId = responseJson.workflow_id;  ",
 							"pm.collectionVariables.set(\"RC_WORKFLOW_ID\", workflowId);",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1661,8 +1660,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1769,8 +1768,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); ",
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); ",
 							""
 						],
 						"type": "text/javascript",
@@ -1828,8 +1827,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1893,8 +1892,8 @@
 							"    pm.response.to.have.status(204);  // 檢查 HTTP 狀態碼是否為 204",
 							"});",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1980,8 +1979,8 @@
 							"pm.collectionVariables.set(\"DD_WORKFLOW_ID\", workflowId);",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); ",
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); ",
 							""
 						],
 						"type": "text/javascript",
@@ -2092,8 +2091,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -2150,8 +2149,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
