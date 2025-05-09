@@ -140,10 +140,7 @@
 // }
 
 
-import groovy.transform.Field
-@Field def results = []
-
-pipeline {
+ipipeline {
   agent any
 
   environment {
@@ -152,7 +149,6 @@ pipeline {
     REPORT_DIR = "/work/reports"
     HTML_REPORT_DIR = "${REPORT_DIR}/html"
     ALLURE_RESULTS_DIR = "${REPORT_DIR}/allure-results"
-    SUITES_JSON = "${REPORT_DIR}/suites.json"
     WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/AAQAGYLH9k0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=HvPXUUnqPlN6c9HhB02kpWleJ86p2lLmDaq32-5t0gQ"
   }
 
@@ -160,14 +156,6 @@ pipeline {
     stage('Checkout Code') {
       steps {
         checkout scm
-      }
-    }
-
-    stage('Set Build Timestamp') {
-      steps {
-        script {
-          env.BUILD_TIME = sh(script: "date '+%Y-%m-%d %H:%M:%S'", returnStdout: true).trim()
-        }
       }
     }
 
@@ -191,7 +179,7 @@ pipeline {
       }
     }
 
-    stage('Run Postman Collections') {
+    stage('Run All Postman Collections') {
       steps {
         script {
           def collections = [
@@ -202,6 +190,8 @@ pipeline {
             "06申請三級亂數"
           ]
 
+          currentBuild.description = ""
+          currentBuild.result = "SUCCESS"
           def successCount = 0
 
           collections.each { col ->
@@ -210,8 +200,8 @@ pipeline {
             def htmlReport = "${HTML_REPORT_DIR}/${col}.html"
             def allureReport = "${ALLURE_RESULTS_DIR}/${col}_allure.xml"
 
-            echo "▶️ Running collection: ${col}"
-            def result = sh(
+            echo "Running collection: ${col}"
+            def result = sh (
               script: """
                 newman run "${collectionFile}" \\
                   -e "${ENV_FILE}" \\
@@ -223,61 +213,33 @@ pipeline {
               returnStatus: true
             )
 
-            def status = (result == 0) ? "passed" : "failed"
-            if (status == "passed") {
+            if (result == 0) {
               successCount++
               echo "✅ ${col} executed successfully."
             } else {
               echo "❌ ${col} failed."
             }
-
-            results << [collection: col, status: status, jsonPath: jsonReport]
           }
 
-          env.SUCCESS_COUNT = successCount.toString()
-          env.FAIL_LIST = results.findAll { it.status == "failed" }
-                              .collect { it.collection }
-                              .join(", ")
+          if (successCount == 0) {
+            currentBuild.result = "FAILURE"
+            currentBuild.description = "❌ All collections failed"
+          } else {
+            currentBuild.description = "✅ ${successCount} collections passed"
+          }
         }
       }
     }
 
-    stage('Generate suites.json') {
-      steps {
-        script {
-          def suiteResults = results.collect { test ->
-            def jsonData = readJSON file: test.jsonPath
-            def stats = jsonData.run?.stats?.requests ?: [:]
-            def timings = jsonData.run?.timings ?: [:]
-
-            return [
-              collection: test.collection,
-              status: test.status,
-              total: stats.total ?: 0,
-              failed: stats.failed ?: 0,
-              responseTimeAvg: timings.responseAverage ?: 0
-            ]
-          }
-
-          def output = groovy.json.JsonOutput.prettyPrint(
-            groovy.json.JsonOutput.toJson(suiteResults)
-          )
-          writeFile file: SUITES_JSON, text: output
-          echo "✅ 已產生 suites.json"
-        }
-      }
-    }
-
-    stage('Generate Allure Report') {
+    stage('Merge JSON Results') {
       steps {
         sh '''
-          cp ${ALLURE_RESULTS_DIR}/*.xml allure-results/ || true
-          allure generate allure-results -o ${REPORT_DIR}/allure-report || echo "⚠️ 忽略 Allure 錯誤"
+          jq -s '.' ${REPORT_DIR}/*_report.json > ${REPORT_DIR}/merged_report.json || true
         '''
       }
     }
 
-    stage('Publish HTML Report') {
+    stage('Publish HTML Reports') {
       steps {
         publishHTML(target: [
           reportDir: "${HTML_REPORT_DIR}",
@@ -286,91 +248,79 @@ pipeline {
         ])
       }
     }
+
+    stage('Prepare Allure Report Folder') {
+      steps {
+        sh '''
+          mkdir -p allure-results
+          cp ${ALLURE_RESULTS_DIR}/*.xml allure-results/ || true
+        '''
+      }
+    }
+
+    stage('Allure Report') {
+      steps {
+        allure includeProperties: false,
+               jdk: '',
+               results: [[path: 'allure-results']]
+      }
+    }
   }
 
   post {
     always {
       echo '🧹 清理臨時文件...'
+
+      script {
+        def status = currentBuild.result ?: "UNKNOWN"
+        def isSuccess = (status == "SUCCESS")
+        def emoji = isSuccess ? "✅" : "❌"
+        def summary = isSuccess ? "🎉 測試成功！" : "⚠️ 測試失敗"
+        def imageUrl = isSuccess
+          ? "https://i.imgur.com/AD3MbBi.png" // success image
+          : "https://i.imgur.com/FYVgU4p.png" // failure image
+
+        def cardMessage = [
+          cardsV2: [[
+            cardId: "jenkins-summary",
+            card: [
+              header: [
+                title: "${emoji} Jenkins Postman 測試結果",
+                subtitle: "${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                imageUrl: imageUrl,
+                imageType: "CIRCLE"
+              ],
+              sections: [[
+                widgets: [
+                  [decoratedText: [
+                    topLabel: "狀態",
+                    text: status,
+                    startIcon: [iconUrl: imageUrl]
+                  ]],
+                  [decoratedText: [
+                    topLabel: "描述",
+                    text: currentBuild.description ?: "無"
+                  ]]
+                ]
+              ]]
+            ]
+          ]]
+        ]
+
+        sh """
+          curl -X POST "${WEBHOOK_URL}" \\
+            -H "Content-Type: application/json" \\
+            -d '${groovy.json.JsonOutput.toJson(cardMessage)}'
+        """
+      }
     }
 
     failure {
-      script {
-        def payload = """{
-  "cards": [
-    {
-      "header": {
-        "title": "❌ 測試失敗",
-        "subtitle": "有 Collection 測試未通過",
-        "imageUrl": "https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png",
-        "imageStyle": "IMAGE"
-      },
-      "sections": [
-        {
-          "widgets": [
-            {
-              "keyValue": {
-                "topLabel": "產生時間",
-                "content": "${env.BUILD_TIME}"
-              }
-            },
-            {
-              "keyValue": {
-                "topLabel": "失敗集合",
-                "content": "${env.FAIL_LIST ?: '全部失敗'}"
-              }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}"""
-        sh """
-          curl -X POST -H 'Content-Type: application/json' \\
-               -d '${payload}' \\
-               '${env.WEBHOOK_URL}'
-        """
-      }
+      echo '❌ Build failed: All collections failed to run.'
     }
 
     success {
-      script {
-        def payload = """{
-  "cards": [
-    {
-      "header": {
-        "title": "✅ 測試成功",
-        "subtitle": "所有報告產生完成",
-        "imageUrl": "https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png",
-        "imageStyle": "IMAGE"
-      },
-      "sections": [
-        {
-          "widgets": [
-            {
-              "keyValue": {
-                "topLabel": "產生時間",
-                "content": "${env.BUILD_TIME}"
-              }
-            },
-            {
-              "keyValue": {
-                "topLabel": "成功集合數",
-                "content": "${env.SUCCESS_COUNT}"
-              }
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}"""
-        sh """
-          curl -X POST -H 'Content-Type: application/json' \\
-               -d '${payload}' \\
-               '${env.WEBHOOK_URL}'
-        """
-      }
+      echo '✅ Build succeeded with at least one passing collection.'
     }
   }
 }
