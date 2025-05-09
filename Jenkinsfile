@@ -137,7 +137,7 @@ pipeline {
           currentBuild.result = "SUCCESS"
           currentBuild.description = "✅ 共 ${collections.size()} 組，成功 ${successCount} 組"
           currentBuild.displayName = "#${env.BUILD_NUMBER} - ${successCount}/${collections.size()} 成功"
-          
+
           // 將統計結果存入 env，供後續 Google Chat 使用
           env.TEST_STATS = ['iterations', 'requests', 'testScripts', 'prerequestScripts', 'assertions'].collect { key ->
             "${key}: executed=${totalExecuted[key]}, failed=${totalFailed[key]}"
@@ -216,7 +216,7 @@ pipeline {
           ]]
         ]
 
-        withCredentials([string(credentialsId: 'GOOGLE_CHAT_WEBHOOK', variable: 'https://chat.googleapis.com/v1/spaces/AAQAGYLH9k0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=HvPXUUnqPlN6c9HhB02kpWleJ86p2lLmDaq32-5t0gQ')]) {
+        withCredentials([string(credentialsId: 'GOOGLE_CHAT_WEBHOOK', variable: 'WEBHOOK_URL')]) {
           sh """
             curl -X POST "$WEBHOOK_URL" \\
               -H "Content-Type: application/json" \\
