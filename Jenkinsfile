@@ -149,6 +149,7 @@ pipeline {
     REPORT_DIR = "/work/reports"
     HTML_REPORT_DIR = "${REPORT_DIR}/html"
     ALLURE_RESULTS_DIR = "allure-results"
+    WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/AAQAGYLH9k0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=HvPXUUnqPlN6c9HhB02kpWleJ86p2lLmDaq32-5t0gQ"
   }
 
   stages {
