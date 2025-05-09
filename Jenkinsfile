@@ -140,7 +140,7 @@
 // }
 
 
-ipipeline {
+pipeline {
   agent any
 
   environment {
@@ -148,8 +148,7 @@ ipipeline {
     COLLECTION_DIR = "/work/collections"
     REPORT_DIR = "/work/reports"
     HTML_REPORT_DIR = "${REPORT_DIR}/html"
-    ALLURE_RESULTS_DIR = "${REPORT_DIR}/allure-results"
-    WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/AAQAGYLH9k0/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=HvPXUUnqPlN6c9HhB02kpWleJ86p2lLmDaq32-5t0gQ"
+    ALLURE_RESULTS_DIR = "allure-results"
   }
 
   stages {
@@ -169,11 +168,12 @@ ipipeline {
             mkdir -p /work/report_backup
             if [ -d "${REPORT_DIR}" ]; then
               mv "${REPORT_DIR}" "${backupDir}"
+              chmod -R 755 "${backupDir}"
               echo "📦 備份舊報告到 ${backupDir}"
             fi
 
-            rm -rf "${REPORT_DIR}" "${HTML_REPORT_DIR}" "${ALLURE_RESULTS_DIR}" allure-results
-            mkdir -p "${REPORT_DIR}" "${HTML_REPORT_DIR}" "${ALLURE_RESULTS_DIR}" allure-results
+            rm -rf "${REPORT_DIR}" "${HTML_REPORT_DIR}" "${ALLURE_RESULTS_DIR}"
+            mkdir -p "${REPORT_DIR}" "${HTML_REPORT_DIR}" "${ALLURE_RESULTS_DIR}"
           """
         }
       }
@@ -191,7 +191,7 @@ ipipeline {
           ]
 
           currentBuild.description = ""
-          currentBuild.result = "SUCCESS"
+          currentBuild.result = "UNSTABLE"
           def successCount = 0
 
           collections.each { col ->
@@ -200,32 +200,36 @@ ipipeline {
             def htmlReport = "${HTML_REPORT_DIR}/${col}.html"
             def allureReport = "${ALLURE_RESULTS_DIR}/${col}_allure.xml"
 
-            echo "Running collection: ${col}"
-            def result = sh (
-              script: """
-                newman run "${collectionFile}" \\
-                  -e "${ENV_FILE}" \\
-                  -r json,cli,html,allure \\
-                  --reporter-json-export "${jsonReport}" \\
-                  --reporter-html-export "${htmlReport}" \\
-                  --reporter-allure-export "${allureReport}"
-              """,
-              returnStatus: true
-            )
+            if (fileExists(collectionFile)) {
+              echo "Running collection: ${col}"
+              def result = sh (
+                script: """
+                  newman run "${collectionFile}" \\
+                    -e "${ENV_FILE}" \\
+                    -r json,cli,html,allure \\
+                    --reporter-json-export "${jsonReport}" \\
+                    --reporter-html-export "${htmlReport}" \\
+                    --reporter-allure-export "${allureReport}"
+                """,
+                returnStatus: true
+              )
 
-            if (result == 0) {
-              successCount++
-              echo "✅ ${col} executed successfully."
+              if (result == 0) {
+                successCount++
+                echo "✅ ${col} executed successfully."
+              } else {
+                echo "❌ ${col} failed."
+              }
             } else {
-              echo "❌ ${col} failed."
+              echo "⚠️ 跳過：找不到 collection 檔案：${collectionFile}"
             }
           }
 
           if (successCount == 0) {
             currentBuild.result = "FAILURE"
-            currentBuild.description = "❌ All collections failed"
+            currentBuild.description = "❌ 所有 collections 都失敗（但建置仍成功)"
           } else {
-            currentBuild.description = "✅ ${successCount} collections passed"
+            currentBuild.description = "✅ ${successCount} collections 成功執行"
           }
         }
       }
@@ -249,20 +253,11 @@ ipipeline {
       }
     }
 
-    stage('Prepare Allure Report Folder') {
-      steps {
-        sh '''
-          mkdir -p allure-results
-          cp ${ALLURE_RESULTS_DIR}/*.xml allure-results/ || true
-        '''
-      }
-    }
-
     stage('Allure Report') {
       steps {
         allure includeProperties: false,
                jdk: '',
-               results: [[path: 'allure-results']]
+               results: [[path: "${ALLURE_RESULTS_DIR}"]]
       }
     }
   }
@@ -277,8 +272,8 @@ ipipeline {
         def emoji = isSuccess ? "✅" : "❌"
         def summary = isSuccess ? "🎉 測試成功！" : "⚠️ 測試失敗"
         def imageUrl = isSuccess
-          ? "https://i.imgur.com/AD3MbBi.png" // success image
-          : "https://i.imgur.com/FYVgU4p.png" // failure image
+          ? "https://i.imgur.com/AD3MbBi.png"
+          : "https://i.imgur.com/FYVgU4p.png"
 
         def cardMessage = [
           cardsV2: [[
@@ -307,11 +302,13 @@ ipipeline {
           ]]
         ]
 
-        sh """
-          curl -X POST "${WEBHOOK_URL}" \\
-            -H "Content-Type: application/json" \\
-            -d '${groovy.json.JsonOutput.toJson(cardMessage)}'
-        """
+        withCredentials([string(credentialsId: 'GOOGLE_CHAT_WEBHOOK', variable: 'WEBHOOK_URL')]) {
+          sh """
+            curl -X POST "$WEBHOOK_URL" \\
+              -H "Content-Type: application/json" \\
+              -d '${groovy.json.JsonOutput.toJson(cardMessage)}'
+          """
+        }
       }
     }
 
