@@ -141,7 +141,7 @@ pipeline {
               "header": {
                 "title": "${statusEmoji} Jenkins Pipeline 執行結果",
                 "subtitle": "專案：${env.JOB_NAME} (#${env.BUILD_NUMBER})",
-                "imageUrl": "https://icon.icepanel.io/Technology/svg/Postman.svg",
+                "imageUrl": "https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png",
                 "imageStyle": "AVATAR"
               },
               "sections": [
