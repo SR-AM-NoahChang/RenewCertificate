@@ -23,14 +23,19 @@ pipeline {
           sh 'rm -rf /work/collections/* || true'
         }
         dir('/work/collections') {
-          checkout([
-            $class: 'GitSCM',
-            branches: [[name: '*/main']],
-            userRemoteConfigs: [[
-              url: 'https://github.com/SR-AM-NoahChang/Maid-postman-auto-tests.git',
-              credentialsId: '0f2edbf7-d6f8-4cf7-a248-d38c89cd99fc'
-            ]]
-          ])
+          sh '''
+            if [ ! -d .git ]; then
+              git clone https://github.com/SR-AM-NoahChang/Maid-postman-auto-tests.git .
+            fi
+            git fetch origin main
+            git reset --hard origin/main
+          '''
+          sh '''
+            echo "✅ 當前 Git commit："
+            git rev-parse HEAD
+            echo "📝 Commit 訊息："
+            git log -1 --oneline
+          '''
         }
         sh '''
           echo 🔍 Repo files under /work/collections:
@@ -82,6 +87,7 @@ pipeline {
                 echo ▶️ 執行 Postman 測試：${name}
                 newman run "${path}" \\
                   --environment "${ENV_FILE}" \\
+                  --insecure \\
                   --reporters cli,json,html,junit,allure \\
                   --reporter-json-export "${REPORT_DIR}/${name}_report.json" \\
                   --reporter-html-export "${HTML_REPORT_DIR}/${name}_report.html" \\
