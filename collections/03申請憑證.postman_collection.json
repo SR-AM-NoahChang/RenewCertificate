@@ -1224,8 +1224,8 @@
 							"}",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 6 秒後執行下一個 API...\");",
-							"}, 6000); ",
+							"    console.log(\"延遲 10 秒後執行下一個 API...\");",
+							"}, 10000); ",
 							""
 						],
 						"type": "text/javascript",
