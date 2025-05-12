@@ -1,10 +1,11 @@
 {
 	"info": {
-		"_postman_id": "cbfe9249-84a3-46db-8c8b-4abd064b455d",
+		"_postman_id": "3aef5ac7-face-4063-864d-0da39107414c",
 		"name": "02申請刪除域名",
 		"description": "#### **申請廳主買域名 > 申請刪除域名 > 驗證 workflow 內容是否正確**\n\n- 驗證所有調用的 api status code 為**正確狀態**\n    \n- 驗證 workflow 申請單號為 `{DD_WORKFLOW_ID}`\n    \n- 驗證域名為 **sramtest01.com**\n    \n- 驗證 workflow 申請類型為 **DeleteDomain**\n    \n- 驗證申請刪除域名 workflow 建立後應自動產生的所有 Job  \n    (DeleteDomainRecord)\n    \n- 驗證所有 Job 最終狀態是否為 **success**",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "42767672"
+		"_exporter_id": "42767672",
+		"_collection_link": "https://jenkins-1121.postman.co/workspace/Jenkins~b3aa8214-7f2f-4dce-a032-2e3decee34b2/collection/42767672-3aef5ac7-face-4063-864d-0da39107414c?action=share&source=collection_link&creator=42767672"
 	},
 	"item": [
 		{
@@ -418,8 +419,8 @@
 							"pm.collectionVariables.set(\"DD_WORKFLOW_ID\", workflowId);",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}

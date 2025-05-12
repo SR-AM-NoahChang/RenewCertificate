@@ -2,11 +2,12 @@ pipeline {
   agent any
 
   environment {
-    ENV_FILE = "/work/environments/DEV.postman_environment.json"
-    COLLECTION_DIR = "/work/collections"
+    COLLECTION_DIR = "/work/collections/collections"
     REPORT_DIR = "/work/reports"
-    HTML_REPORT_DIR = "${REPORT_DIR}/html"
-    ALLURE_RESULTS_DIR = "allure-results"
+    HTML_REPORT_DIR = "/work/reports/html"
+    ALLURE_RESULTS_DIR = "ALLURE-RESULTS"
+    ENV_FILE = "/work/collections/environments/DEV.postman_environment.json"
+    WEBHOOK_URL = credentials('GOOGLE_CHAT_WEBHOOK')
   }
 
   stages {
@@ -16,22 +17,44 @@ pipeline {
       }
     }
 
+    stage('Checkout Postman Collections') {
+      steps {
+        script {
+          sh 'rm -rf /work/collections/* || true'
+        }
+        dir('/work/collections') {
+          checkout([
+            $class: 'GitSCM',
+            branches: [[name: '*/main']],
+            userRemoteConfigs: [[
+              url: 'https://github.com/SR-AM-NoahChang/Maid-postman-auto-tests.git',
+              credentialsId: '0f2edbf7-d6f8-4cf7-a248-d38c89cd99fc'
+            ]]
+          ])
+        }
+        sh '''
+          echo 🔍 Repo files under /work/collections:
+          ls -R /work/collections
+
+          echo 🔍 Checking environment file:
+          ls -l /work/collections/environments
+        '''
+      }
+    }
+
     stage('Prepare Folders') {
       steps {
         script {
           def timestamp = sh(script: "date +%Y%m%d_%H%M%S", returnStdout: true).trim()
-          def backupDir = "/work/report_backup/${timestamp}"
-
           sh """
             mkdir -p /work/report_backup
             if [ -d "${REPORT_DIR}" ]; then
-              mv "${REPORT_DIR}" "${backupDir}"
-              chmod -R 755 "${backupDir}"
-              echo "📦 備份舊報告到 ${backupDir}"
+              mv ${REPORT_DIR} /work/report_backup/${timestamp}
+              chmod -R 755 /work/report_backup/${timestamp}
+              echo 📦 備份舊報告到 /work/report_backup/${timestamp}
             fi
-
-            rm -rf "${REPORT_DIR}" "${HTML_REPORT_DIR}" "${ALLURE_RESULTS_DIR}"
-            mkdir -p "${REPORT_DIR}" "${HTML_REPORT_DIR}" "${ALLURE_RESULTS_DIR}"
+            rm -rf ${REPORT_DIR} ${HTML_REPORT_DIR} allure-results
+            mkdir -p ${REPORT_DIR} ${HTML_REPORT_DIR} allure-results
           """
         }
       }
@@ -40,6 +63,10 @@ pipeline {
     stage('Run All Postman Collections') {
       steps {
         script {
+          if (!fileExists(env.ENV_FILE)) {
+            error "❌ 找不到環境檔案：${env.ENV_FILE}"
+          }
+
           def collections = [
             "01申請廳主買域名",
             "02申請刪除域名",
@@ -48,109 +75,30 @@ pipeline {
             "06申請三級亂數"
           ]
 
-          def successCount = 0
-
-          def totalExecuted = [
-            iterations: 0,
-            requests: 0,
-            testScripts: 0,
-            prerequestScripts: 0,
-            assertions: 0
-          ]
-          def totalFailed = [
-            iterations: 0,
-            requests: 0,
-            testScripts: 0,
-            prerequestScripts: 0,
-            assertions: 0
-          ]
-
-          collections.each { col ->
-            def collectionFile = "${COLLECTION_DIR}/${col}.postman_collection.json"
-            def jsonReport = "${REPORT_DIR}/${col}_report.json"
-            def htmlReport = "${HTML_REPORT_DIR}/${col}.html"
-            def allureReport = "${ALLURE_RESULTS_DIR}/${col}_allure.xml"
-
-            if (fileExists(collectionFile)) {
-              echo "🚀 Running collection: ${col}"
-              def result = sh (
-                script: """
-                  newman run "${collectionFile}" \\
-                    -e "${ENV_FILE}" \\
-                    -r json,cli,html,allure \\
-                    --reporter-json-export "${jsonReport}" \\
-                    --reporter-html-export "${htmlReport}" \\
-                    --reporter-allure-export "${allureReport}"
-                """,
-                returnStatus: true
-              )
-
-              if (result == 0) {
-                successCount++
-                echo "✅ ${col} executed successfully."
-              } else {
-                echo "❌ ${col} failed."
-              }
-
-              def statsOutput = sh(
-                script: """
-                  jq -r '.run.stats | to_entries[] | "\\(.key) \\(.value.total) \\(.value.failed)"' ${jsonReport}
-                """,
-                returnStdout: true
-              ).trim()
-
-              statsOutput.eachLine { line ->
-                def (key, total, failed) = line.tokenize(' ')
-                switch (key) {
-                  case 'iterations':
-                    totalExecuted.iterations += total.toInteger()
-                    totalFailed.iterations += failed.toInteger()
-                    break
-                  case 'requests':
-                    totalExecuted.requests += total.toInteger()
-                    totalFailed.requests += failed.toInteger()
-                    break
-                  case 'testScripts':
-                    totalExecuted.testScripts += total.toInteger()
-                    totalFailed.testScripts += failed.toInteger()
-                    break
-                  case 'prerequestScripts':
-                    totalExecuted.prerequestScripts += total.toInteger()
-                    totalFailed.prerequestScripts += failed.toInteger()
-                    break
-                  case 'assertions':
-                    totalExecuted.assertions += total.toInteger()
-                    totalFailed.assertions += failed.toInteger()
-                    break
-                }
-              }
+          collections.each { name ->
+            def path = "${COLLECTION_DIR}/${name}.postman_collection.json"
+            if (fileExists(path)) {
+              sh """
+                echo ▶️ 執行 Postman 測試：${name}
+                newman run "${path}" \\
+                  --environment "${ENV_FILE}" \\
+                  --reporters cli,json,html,junit,allure \\
+                  --reporter-json-export "${REPORT_DIR}/${name}_report.json" \\
+                  --reporter-html-export "${HTML_REPORT_DIR}/${name}_report.html" \\
+                  --reporter-junit-export "${REPORT_DIR}/${name}_report.xml" \\
+                  --reporter-allure-export "allure-results" || true
+              """
             } else {
-              echo "⚠️ 跳過：找不到 collection 檔案：${collectionFile}"
+              echo "⚠️ 跳過：找不到 collection 檔案：${path}"
             }
           }
-
-          echo "📊 測試統計結果："
-          ['iterations', 'requests', 'testScripts', 'prerequestScripts', 'assertions'].each { key ->
-            echo "🔹 ${key.padRight(20)} | executed: ${totalExecuted[key]} | failed: ${totalFailed[key]}"
-          }
-
-          currentBuild.result = "SUCCESS"
-          currentBuild.description = "✅ 共 ${collections.size()} 組，成功 ${successCount} 組"
-          currentBuild.displayName = "#${env.BUILD_NUMBER} - ${successCount}/${collections.size()} 成功"
-
-          // 將統計結果存入 env，供後續 Google Chat 使用
-          env.TEST_STATS = ['iterations', 'requests', 'testScripts', 'prerequestScripts', 'assertions'].collect { key ->
-            "${key}: executed=${totalExecuted[key]}, failed=${totalFailed[key]}"
-          }.join("\\n")
         }
       }
     }
 
     stage('Merge JSON Results') {
       steps {
-        sh '''
-          jq -s '.' ${REPORT_DIR}/*_report.json > ${REPORT_DIR}/merged_report.json || true
-        '''
+        sh "jq -s . ${REPORT_DIR}/*_report.json > ${REPORT_DIR}/suites.json || true"
       }
     }
 
@@ -158,17 +106,22 @@ pipeline {
       steps {
         publishHTML(target: [
           reportDir: "${HTML_REPORT_DIR}",
-          reportFiles: '*.html',
-          reportName: 'Postman HTML Reports'
+          reportFiles: 'index.html',
+          reportName: 'Postman HTML Reports',
+          allowMissing: true,
+          alwaysLinkToLastBuild: true,
+          keepAll: true
         ])
       }
     }
 
     stage('Allure Report') {
       steps {
-        allure includeProperties: false,
-               jdk: '',
-               results: [[path: "${ALLURE_RESULTS_DIR}"]]
+        allure([
+          includeProperties: false,
+          jdk: '',
+          results: [[path: 'allure-results']]
+        ])
       }
     }
   }
@@ -176,51 +129,49 @@ pipeline {
   post {
     always {
       echo '🧹 清理臨時文件...'
-
       script {
-        def status = currentBuild.result ?: "UNKNOWN"
-        def isSuccess = (status == "SUCCESS")
-        def emoji = isSuccess ? "✅" : "❌"
-        def imageUrl = isSuccess
-          ? "https://i.imgur.com/AD3MbBi.png"
-          : "https://i.imgur.com/FYVgU4p.png"
+        def buildResult = currentBuild.currentResult
+        def statusEmoji = buildResult == 'SUCCESS' ? '✅' : (buildResult == 'FAILURE' ? '❌' : '⚠️')
+        def timestamp = new Date().format("yyyy-MM-dd HH:mm:ss", TimeZone.getTimeZone('Asia/Taipei'))
 
-        def cardMessage = [
-          cardsV2: [[
-            cardId: "jenkins-summary",
-            card: [
-              header: [
-                title: "${emoji} Jenkins 測試結果通知",
-                subtitle: "${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                imageUrl: imageUrl,
-                imageType: "CIRCLE"
-              ],
-              sections: [[
-                widgets: [
-                  [decoratedText: [
-                    topLabel: "狀態",
-                    text: status,
-                    startIcon: [iconUrl: imageUrl]
-                  ]],
-                  [decoratedText: [
-                    topLabel: "描述",
-                    text: currentBuild.description ?: "無"
-                  ]],
-                  [decoratedText: [
-                    topLabel: "統計資訊",
-                    text: env.TEST_STATS.replaceAll("\\\\n", "\n")
-                  ]]
-                ]
-              ]]
-            ]
-          ]]
-        ]
+        def message = """
+        {
+          "cards": [
+            {
+              "header": {
+                "title": "${statusEmoji} Jenkins Pipeline 執行結果",
+                "subtitle": "專案：${env.JOB_NAME} (#${env.BUILD_NUMBER})",
+                "imageUrl": "https://www.jenkins.io/images/logos/jenkins/jenkins.png",
+                "imageStyle": "AVATAR"
+              },
+              "sections": [
+                {
+                  "widgets": [
+                    {
+                      "keyValue": {
+                        "topLabel": "狀態",
+                        "content": "${buildResult}"
+                      }
+                    },
+                    {
+                      "keyValue": {
+                        "topLabel": "完成時間",
+                        "content": "${timestamp}"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """
 
         withCredentials([string(credentialsId: 'GOOGLE_CHAT_WEBHOOK', variable: 'WEBHOOK_URL')]) {
           sh """
-            curl -X POST "$WEBHOOK_URL" \\
-              -H "Content-Type: application/json" \\
-              -d '${groovy.json.JsonOutput.toJson(cardMessage)}' || true
+            curl -k -X POST -H 'Content-Type: application/json' \\
+              -d '${message}' \\
+              "${WEBHOOK_URL}"
           """
         }
       }

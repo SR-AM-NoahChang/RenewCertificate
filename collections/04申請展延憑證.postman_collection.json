@@ -1,10 +1,11 @@
 {
 	"info": {
-		"_postman_id": "69f1ea62-7038-4c30-a4cc-8b6441d9b439",
+		"_postman_id": "9cbb30dc-0248-4b54-a1e2-37c1a7bdc7a6",
 		"name": "04申請展延憑證",
 		"description": "#### **申請廳主買域名 > 申請購買與部署憑證 > 建立展延憑證 > 驗證 workflow 內容是否正確 > 申請刪除域名(確保 Domain 乾淨)**\n\n- 驗證所有調用的 api status code 為正確狀態\n    \n- 驗證 workflow 申請單號為 {RC_WORKFLOW_ID}\n    \n- 驗證域名為 sramtest01.com\n    \n- 驗證 workflow 申請類型為 RenewCertificate\n    \n- 驗證申請憑證 workflow 建立後應自動產生的所有 Job  \n    (PurchaseAndDeployCert, CheckPurchaseDeployCertificateStatus, RecheckCert)\n    \n- 驗證所有 Job 最終狀態是否為 success",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "42767672"
+		"_exporter_id": "42767672",
+		"_collection_link": "https://jenkins-1121.postman.co/workspace/Jenkins~b3aa8214-7f2f-4dce-a032-2e3decee34b2/collection/42767672-9cbb30dc-0248-4b54-a1e2-37c1a7bdc7a6?action=share&source=collection_link&creator=42767672"
 	},
 	"item": [
 		{
@@ -34,8 +35,8 @@
 							"pm.collectionVariables.set(\"PD_WORKFLOW_ID\", workflowId);",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -117,8 +118,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); ",
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); ",
 							""
 						],
 						"type": "text/javascript",
@@ -225,8 +226,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); ",
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); ",
 							""
 						],
 						"type": "text/javascript",
@@ -416,8 +417,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000);  "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -519,8 +520,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -817,8 +818,8 @@
 							"pm.collectionVariables.set(\"PC_WORKFLOW_ID\", workflowId);",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -903,8 +904,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1011,8 +1012,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1198,9 +1199,10 @@
 							"pm.test(\"Status code is 200 (打憑證 Tag)\", function () {",
 							"    pm.response.to.have.status(200);  // 檢查 HTTP 狀態碼是否為 200",
 							"});",
+							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1276,7 +1278,7 @@
 					},
 					{
 						"key": "Cookie",
-						"value": "G_ENABLED_IDPS=google; PHPSESSID=ee52af1101e0ef1eaf541c70f36c4cca; G_AUTHUSER_H=0"
+						"value": "G_ENABLED_IDPS=google; PHPSESSID={{PHPSESSID}}; G_AUTHUSER_H=0"
 					}
 				],
 				"body": {
@@ -1450,9 +1452,10 @@
 							"pm.test(\"Status code is 200 (dctest Table 更新)\", function () {",
 							"    pm.response.to.have.status(200);  // 檢查 HTTP 狀態碼是否為 200",
 							"});",
+							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000);  "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1563,9 +1566,10 @@
 							"var responseJson = pm.response.json(); ",
 							"var workflowId = responseJson.workflow_id;  ",
 							"pm.collectionVariables.set(\"RC_WORKFLOW_ID\", workflowId);",
+							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1660,8 +1664,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1979,8 +1983,8 @@
 							"pm.collectionVariables.set(\"DD_WORKFLOW_ID\", workflowId);",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); ",
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000);  ",
 							""
 						],
 						"type": "text/javascript",
@@ -2091,8 +2095,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}

@@ -1,9 +1,10 @@
 {
 	"info": {
-		"_postman_id": "52793c4d-8812-44e5-a8da-78ca66f4264c",
+		"_postman_id": "6fbc0d22-ba9b-45d9-9eb4-c7ebd4c1dd18",
 		"name": "06申請三級亂數",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "42767672"
+		"_exporter_id": "42767672",
+		"_collection_link": "https://jenkins-1121.postman.co/workspace/Jenkins~b3aa8214-7f2f-4dce-a032-2e3decee34b2/collection/42767672-6fbc0d22-ba9b-45d9-9eb4-c7ebd4c1dd18?action=share&source=collection_link&creator=42767672"
 	},
 	"item": [
 		{
@@ -33,8 +34,8 @@
 							"pm.collectionVariables.set(\"PD_WORKFLOW_ID\", workflowId);",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000);  "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -116,8 +117,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); ",
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); ",
 							"",
 							""
 						],
@@ -418,8 +419,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -495,7 +496,7 @@
 					},
 					{
 						"key": "Cookie",
-						"value": "PHPSESSID=8022358d2baa8adc1f96e385b505cb65; G_ENABLED_IDPS=google;"
+						"value": "G_ENABLED_IDPS=google; PHPSESSID={{PHPSESSID}}; G_AUTHUSER_H=0"
 					}
 				],
 				"body": {
@@ -711,8 +712,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -788,7 +789,7 @@
 					},
 					{
 						"key": "Cookie",
-						"value": "G_ENABLED_IDPS=google; PHPSESSID=ee52af1101e0ef1eaf541c70f36c4cca; G_AUTHUSER_H=0"
+						"value": "G_ENABLED_IDPS=google; PHPSESSID={{PHPSESSID}}; G_AUTHUSER_H=0"
 					}
 				],
 				"body": {
@@ -964,8 +965,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1078,8 +1079,8 @@
 							"pm.collectionVariables.set(\"TLR_WORKFLOW_ID\", workflowId);",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1163,8 +1164,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1267,8 +1268,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1481,8 +1482,8 @@
 							"pm.collectionVariables.set(\"DD_WORKFLOW_ID\", workflowId);",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); "
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -1592,8 +1593,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
-							"}, 3000); ",
+							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
+							"}, 2000); ",
 							""
 						],
 						"type": "text/javascript",
