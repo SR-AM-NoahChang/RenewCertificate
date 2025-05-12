@@ -419,8 +419,8 @@
 							"});",
 							"",
 							"setTimeout(function() {",
-							"    console.log(\"延遲 2 秒後執行下一個 API...\");",
-							"}, 2000); "
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
