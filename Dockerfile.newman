@@ -41,3 +41,6 @@ CMD ["run", "/work/collections/default.postman_collection.json", \
      "-e", "/work/environments/DEV.postman_environment.json", \
      "-r", "html", \
      "--reporter-html-export", "/work/reports/TestReport.html"]
+
+#確認項目涵蓋
+RUN reporter mkdir 

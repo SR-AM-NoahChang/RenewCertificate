@@ -1,3 +1,5 @@
+// 
+
 pipeline {
   agent any
 
@@ -101,6 +103,43 @@ pipeline {
         }
       }
     }
+
+stage('Poll Job Status Until Done') {
+  steps {
+    script {
+      def maxAttempts = 30  // 最多輪詢次數
+      def interval = 60     // 每次間隔秒數
+      def success = false
+
+      for (int i = 1; i <= maxAttempts; i++) {
+        echo "🔄 第 ${i} 次檢查 job 狀態..."
+        def result = sh(
+          script: """
+            newman run "${COLLECTION_DIR}/01申請廳主買域名.postman_collection.json" \\
+              --folder "Job Status Polling" \\
+              --environment "${ENV_FILE}" \\
+              --insecure \\
+              --reporters cli || true
+          """,
+          returnStatus: true
+        )
+
+        if (result == 0) {
+          echo "✅ 所有 job 成功完成，結束輪詢"
+          success = true
+          break
+        } else {
+          echo "⌛ 尚未完成，等待 ${interval} 秒..."
+          sleep interval
+        }
+      }
+
+      if (!success) {
+        error "❌ 超過 ${maxAttempts} 次輪詢仍未完成或有失敗"
+      }
+    }
+  }
+}
 
     stage('Merge JSON Results') {
       steps {
