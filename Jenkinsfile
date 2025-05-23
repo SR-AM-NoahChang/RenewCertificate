@@ -104,7 +104,7 @@ pipeline {
       }
     }
 
-stage('Poll Job Status Until Done') {
+stage('Job Status Polling') {
   steps {
     script {
       def maxAttempts = 30  // 最多輪詢次數
