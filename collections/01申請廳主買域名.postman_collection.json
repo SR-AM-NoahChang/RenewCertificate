@@ -178,117 +178,134 @@
 			"response": []
 		},
 		{
-			"name": "Job Status Polling",
-			"item": [
+			"name": "取得廳主買域名項目資料 (Job狀態檢查)",
+			"event": [
 				{
-					"name": "取得廳主買域名項目資料 (Job狀態檢查)",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"// 驗證 HTTP 狀態碼為 200",
-									"pm.test(\"Status code is 200\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"",
-									"// 預期的 job name 列表",
-									"const expectedNames = [",
-									"    \"CheckDomainBlocked\",",
-									"    \"VerifyTLD\",",
-									"    \"UpdateNameServer\",",
-									"    \"UpdateDomainRecord\",",
-									"    \"MergeErrorRecord\",",
-									"    \"RecheckDomainResolution\",",
-									"    \"RemoveTag\"",
-									"];",
-									"",
-									"// 回應 JSON 只定義一次",
-									"const responseJson = pm.response.json();",
-									"",
-									"// 函數：動態設置 job_id",
-									"function setJobIdForJobName(jobName) {",
-									"    responseJson.forEach(function(item) {",
-									"        if (item.name === jobName) {",
-									"            pm.collectionVariables.set(`${jobName}_job_id`, item.job_id);",
-									"        }",
-									"    });",
-									"}",
-									"",
-									"// 設置所有 job 的 job_id",
-									"expectedNames.forEach(setJobIdForJobName);",
-									"",
-									"// 驗證所有預期的 name 是否都出現在回應中",
-									"pm.test(\"All expected names are present in the response\", function () {",
-									"    const actualNames = responseJson.map(item => item.name);",
-									"",
-									"    expectedNames.forEach(expectedName => {",
-									"        pm.expect(actualNames).to.include(expectedName);",
-									"    });",
-									"});",
-									"",
-									"// 檢查是否有 job 的 status 不為 success，若有就列出",
-									"pm.test(\"所有 job 的 status 都為 success\", function () {",
-									"    const failedJobs = responseJson.filter(job => job.status !== \"success\");",
-									"",
-									"    if (failedJobs.length > 0) {",
-									"        console.log(\"❌ 以下 job status 不為 success：\");",
-									"        failedJobs.forEach(job => {",
-									"            console.log(`🔴 Job ID ${job.job_id} [${job.name}] status: ${job.status}, message: ${job.message || \"無訊息\"}`);",
-									"        });",
-									"    }",
-									"",
-									"    pm.expect(failedJobs.length, \"至少有一個 job status 非 success\").to.eql(0);",
-									"});",
-									"",
-									"setTimeout(function() {",
-									"    console.log(\"延遲 2 秒後執行下一個 API...\");",
-									"}, 2000); "
-								],
-								"type": "text/javascript",
-								"packages": {}
-							}
-						}
-					],
-					"request": {
-						"auth": {
-							"type": "noauth"
-						},
-						"method": "GET",
-						"header": [
-							{
-								"key": "Accept",
-								"value": "application/json",
-								"type": "text"
-							},
-							{
-								"key": "X-API-Key",
-								"value": "{{ADM_KEY}}",
-								"type": "text"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json",
-								"type": "text"
-							}
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// ========== 基本設定 ==========",
+							"const pollMaxAttempts = 10;",
+							"const currentAttempt = parseInt(pm.environment.get(\"poll_attempt\") || \"1\");",
+							"",
+							"// ========== 狀態檢查邏輯 ==========",
+							"pm.test(\"Status code is 200\", () => {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"// 預期的 job name 列表",
+							"const expectedNames = [",
+							"    \"CheckDomainBlocked\",",
+							"    \"VerifyTLD\",",
+							"    \"UpdateNameServer\",",
+							"    \"UpdateDomainRecord\",",
+							"    \"MergeErrorRecord\",",
+							"    \"RecheckDomainResolution\",",
+							"    \"RemoveTag\"",
+							"];",
+							"",
+							"const responseJson = pm.response.json();",
+							"",
+							"// 儲存 job_id 到 Collection Variables",
+							"expectedNames.forEach(name => {",
+							"    const job = responseJson.find(item => item.name === name);",
+							"    if (job) {",
+							"        pm.collectionVariables.set(`${name}_job_id`, job.job_id);",
+							"    }",
+							"});",
+							"",
+							"// 驗證所有 job 都有回傳",
+							"pm.test(\"All expected job names are present\", () => {",
+							"    const actualNames = responseJson.map(item => item.name);",
+							"    expectedNames.forEach(expectedName => {",
+							"        pm.expect(actualNames).to.include(expectedName);",
+							"    });",
+							"});",
+							"",
+							"// 檢查狀態",
+							"const failedJobs = responseJson.filter(job => job.status === \"failure\");",
+							"const pendingJobs = responseJson.filter(job => job.status !== \"success\" && job.status !== \"failure\");",
+							"",
+							"if (failedJobs.length > 0) {",
+							"    // ❌ 任一 job failure，立即停止輪詢並標記錯誤",
+							"    console.log(`❌ 有 job 出現 failure，停止輪詢（第 ${currentAttempt} 次）`);",
+							"    failedJobs.forEach(job => {",
+							"        console.log(`🔴 Job ID ${job.job_id} [${job.name}] status: ${job.status}, message: ${job.message || \"無訊息\"}`);",
+							"    });",
+							"    pm.environment.unset(\"poll_attempt\");",
+							"    pm.execution.setNextRequest(null);",
+							"    pm.test(\"輪詢失敗：有 job status 為 failure\", () => {",
+							"        pm.expect(failedJobs.length).to.eql(0); // 將此標記為失敗",
+							"    });",
+							"} else if (pendingJobs.length === 0) {",
+							"    // ✅ 所有 job 都 success，結束輪詢",
+							"    console.log(`✅ 所有 job 都為 success，輪詢完成（第 ${currentAttempt} 次）`);",
+							"    pm.environment.unset(\"poll_attempt\");",
+							"    pm.execution.setNextRequest(null);",
+							"} else {",
+							"    // ⏳ 尚有 pending，繼續輪詢",
+							"    console.log(`⏳ 第 ${currentAttempt} 次輪詢，仍有 job 未完成：`);",
+							"    pendingJobs.forEach(job => {",
+							"        console.log(`🟡 Job ID ${job.job_id} [${job.name}] status: ${job.status}`);",
+							"    });",
+							"",
+							"    if (currentAttempt < pollMaxAttempts) {",
+							"        pm.environment.set(\"poll_attempt\", (currentAttempt + 1).toString());",
+							"        pm.execution.setNextRequest(pm.info.requestName); // 🔁 重試本 request",
+							"    } else {",
+							"        // ❌ 超過輪詢次數上限",
+							"        console.log(`❌ 超過最大輪詢次數 (${pollMaxAttempts})，停止輪詢`);",
+							"        pm.environment.unset(\"poll_attempt\");",
+							"        pm.execution.setNextRequest(null);",
+							"        pm.test(\"輪詢失敗：已達最大嘗試次數仍未完成\", () => {",
+							"            pm.expect(pendingJobs.length).to.eql(0); // 將此標記為失敗",
+							"        });",
+							"    }",
+							"}",
+							""
 						],
-						"url": {
-							"raw": "{{BASE_URL}}/workflow_api/adm/workflows/{{PD_WORKFLOW_ID}}/jobs",
-							"host": [
-								"{{BASE_URL}}"
-							],
-							"path": [
-								"workflow_api",
-								"adm",
-								"workflows",
-								"{{PD_WORKFLOW_ID}}",
-								"jobs"
-							]
-						}
-					},
-					"response": []
+						"type": "text/javascript",
+						"packages": {}
+					}
 				}
-			]
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "X-API-Key",
+						"value": "{{ADM_KEY}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{BASE_URL}}/workflow_api/adm/workflows/{{PD_WORKFLOW_ID}}/jobs",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"workflow_api",
+						"adm",
+						"workflows",
+						"{{PD_WORKFLOW_ID}}",
+						"jobs"
+					]
+				}
+			},
+			"response": []
 		},
 		{
 			"name": "申請刪除域名",

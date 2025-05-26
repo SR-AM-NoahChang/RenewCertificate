@@ -8,6 +8,8 @@ pipeline {
     ALLURE_RESULTS_DIR = "ALLURE-RESULTS"
     ENV_FILE = "/work/collections/environments/DEV.postman_environment.json"
     WEBHOOK_URL = credentials('GOOGLE_CHAT_WEBHOOK')
+    BASE_URL = "http://maid-cloud.vir999.com"        // ✅ 記得換成實際網址
+    YOUR_TOKEN_ENV_VAR = credentials('0f2edbf7-d6f8-4cf7-a248-d38c89cd99fc') // ✅ 使用 Jenkins credential ID
   }
 
   stages {
@@ -65,78 +67,71 @@ pipeline {
       }
     }
 
-    stage('Run All Postman Collections with Polling') {
+    stage('Poll Job Status') {  // ✅ 已清除重複區塊
       steps {
         script {
-          if (!fileExists(env.ENV_FILE)) {
-            error "❌ 找不到環境檔案：${env.ENV_FILE}"
+          def workflowId = sh(script: "jq -r '.item[] | select(.name==\"申請廳主買域名\") | .response[].body' ${REPORT_DIR}/01申請廳主買域名_report.json | jq -r '.workflow_id'", returnStdout: true).trim()
+
+          if (!workflowId || workflowId == "null") {
+            error("❌ 無法從報告中取得 workflow_id")
           }
 
-          def collections = [
-            "01申請廳主買域名",
-            "02申請刪除域名",
-            "03申請憑證",
-            "04申請展延憑證",
-            "06申請三級亂數"
+          def expectedJobs = [
+            "CheckDomainBlocked",
+            "VerifyTLD",
+            "UpdateNameServer",
+            "UpdateDomainRecord",
+            "MergeErrorRecord",
+            "RecheckDomainResolution",
+            "RemoveTag"
           ]
 
-          def maxAttempts = 30
-          def interval = 60
+          def pollMax = 10
+          def pollInterval = 60 // 秒
+          def success = false
 
-          collections.each { name ->
-            def path = "${COLLECTION_DIR}/${name}.postman_collection.json"
-            if (fileExists(path)) {
-              if (name == "01申請廳主買域名") {
-                boolean success = false
-                for (int i = 1; i <= maxAttempts; i++) {
-                  echo "▶️ 執行 ${name} 第 ${i} 次輪詢測試..."
-                  def status = sh(
-                    script: """
-                      newman run "${path}" \\
-                        --folder "Job Status Polling" \\
-                        --environment "${ENV_FILE}" \\
-                        --insecure \\
-                        --reporters cli || true
-                    """,
-                    returnStatus: true
-                  )
-                  if (status == 0) {
-                    echo "✅ ${name} job 完成，結束輪詢"
-                    success = true
-                    break
-                  } else {
-                    echo "⌛ 尚未完成，等待 ${interval} 秒後繼續輪詢..."
-                    sleep(interval)
-                  }
-                }
-                if (!success) {
-                  error "❌ ${name} 輪詢超時，仍有 job 未完成或失敗"
-                }
+          for (int attempt = 1; attempt <= pollMax; attempt++) {
+            echo "⏳ 第 ${attempt} 次輪詢，檢查 Job 狀態..."
+
+            def json = sh(
+              script: """curl -s -k -X GET "${BASE_URL}/workflow_api/adm/workflows/${workflowId}/jobs" \\
+                -H "Content-Type: application/json" \\
+                -H "Authorization: Bearer ${YOUR_TOKEN_ENV_VAR}" """,
+              returnStdout: true
+            ).trim()
+
+            def jobs = readJSON text: json
+            def jobStatuses = jobs.collectEntries { [(it.name): it.status] }
+            def failedJobs = jobs.findAll { it.status == "failure" }
+            def incompleteJobs = jobs.findAll { it.status != "success" }
+
+            echo "📊 Job 狀態摘要: ${jobStatuses}"
+
+            if (failedJobs) {
+              echo "❌ 發現失敗 Job："
+              failedJobs.each { echo "🔴 ${it.name} - ${it.status} - ${it.message ?: '無訊息'}" }
+              error("❌ Job 中有失敗項目，停止輪詢")
+            }
+
+            if (incompleteJobs) {
+              echo "⏸️ 尚有 ${incompleteJobs.size()} 個 Job 未完成"
+              if (attempt < pollMax) {
+                echo "⏲️ 等待 ${pollInterval} 秒後重試..."
+                sleep time: pollInterval, unit: 'SECONDS'
+              } else {
+                error("❌ 已達最大輪詢次數，仍有 Job 未完成")
               }
-
-              // 無論是否有輪詢，接著跑整個 collection 產生完整報告
-              sh """
-                echo ▶️ 執行 Postman 測試：${name}
-                newman run "${path}" \\
-                  --environment "${ENV_FILE}" \\
-                  --insecure \\
-                  --reporters cli,json,html,junit,allure \\
-                  --reporter-json-export "${REPORT_DIR}/${name}_report.json" \\
-                  --reporter-html-export "${HTML_REPORT_DIR}/${name}_report.html" \\
-                  --reporter-junit-export "${REPORT_DIR}/${name}_report.xml" \\
-                  --reporter-allure-export "allure-results" || true
-              """
             } else {
-              echo "⚠️ 跳過：找不到 collection 檔案：${path}"
+              echo "✅ 所有 Job 已成功完成"
+              success = true
+              break
             }
           }
-        }
-      }
-    }
 
-    stage('Merge JSON Results') {
-      steps {
-        sh "jq -s . ${REPORT_DIR}/*_report.json > ${REPORT_DIR}/suites.json || true"
+          if (!success) {
+            error("❌ 輪詢結束但未成功完成")
+          }
+        }
       }
     }
 
