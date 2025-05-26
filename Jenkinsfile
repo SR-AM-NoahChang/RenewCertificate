@@ -127,7 +127,7 @@ pipeline {
           ]
 
           def pollMax = 10
-          def pollInterval = 60
+          def pollInterval = 300
           def success = false
 
           for (int attempt = 1; attempt <= pollMax; attempt++) {
