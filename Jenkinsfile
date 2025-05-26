@@ -70,7 +70,16 @@ pipeline {
     stage('Poll Job Status') {  // ✅ 已清除重複區塊
       steps {
         script {
-          def workflowId = sh(script: "jq -r '.item[] | select(.name==\"申請廳主買域名\") | .response[].body' ${REPORT_DIR}/01申請廳主買域名_report.json | jq -r '.workflow_id'", returnStdout: true).trim()
+          def workflowId = sh(script: """
+              jq -r '
+                .run.executions[]
+                | select(.item.name == "申請廳主買域名")
+                | .assertions[]
+                | select(.assertion | startswith("workflow_id:"))
+                | .assertion
+              ' ${REPORT_DIR}/01申請廳主買域名_report.json | sed 's/workflow_id: //' | head -n1
+            """, returnStdout: true).trim()
+
 
           if (!workflowId || workflowId == "null") {
             error("❌ 無法從報告中取得 workflow_id")

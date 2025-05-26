@@ -39,7 +39,19 @@
 							"",
 							"setTimeout(function() {",
 							"    console.log(\"延遲 1 秒後執行下一個 API...\");",
-							"}, 1000); "
+							"}, 1000); ",
+							"",
+							"if (workflowId) {",
+							"    // 新增這段，讓 workflow_id 出現在報告的 assertion 中",
+							"    pm.test(\"workflow_id: \" + workflowId, function () {",
+							"        pm.expect(true).to.be.true;",
+							"    });",
+							"} else {",
+							"    pm.test(\"❌ workflow_id 不存在\", function () {",
+							"        pm.expect.fail(\"回應中無 workflow_id\");",
+							"    });",
+							"}",
+							""
 						],
 						"type": "text/javascript",
 						"packages": {}
