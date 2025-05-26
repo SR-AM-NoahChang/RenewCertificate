@@ -8,8 +8,8 @@ pipeline {
     ALLURE_RESULTS_DIR = "ALLURE-RESULTS"
     ENV_FILE = "/work/collections/environments/DEV.postman_environment.json"
     WEBHOOK_URL = credentials('GOOGLE_CHAT_WEBHOOK')
-    BASE_URL = "http://maid-cloud.vir999.com"        // ✅ 記得換成實際網址
-    YOUR_TOKEN_ENV_VAR = credentials('0f2edbf7-d6f8-4cf7-a248-d38c89cd99fc') // ✅ 使用 Jenkins credential ID
+    BASE_URL = "http://maid-cloud.vir999.com"  // ✅ 替換為實際網址
+    YOUR_TOKEN_ENV_VAR = credentials('0f2edbf7-d6f8-4cf7-a248-d38c89cd99fc')
   }
 
   stages {
@@ -31,21 +31,10 @@ pipeline {
             fi
             git fetch origin main
             git reset --hard origin/main
-          '''
-          sh '''
-            echo "✅ 當前 Git commit："
-            git rev-parse HEAD
-            echo "📝 Commit 訊息："
-            git log -1 --oneline
+            echo "✅ 當前 Git commit：$(git rev-parse HEAD)"
+            echo "📝 Commit 訊息：$(git log -1 --oneline)"
           '''
         }
-        sh '''
-          echo 🔍 Repo files under /work/collections:
-          ls -R /work/collections
-
-          echo 🔍 Checking environment file:
-          ls -l /work/collections/environments
-        '''
       }
     }
 
@@ -67,19 +56,61 @@ pipeline {
       }
     }
 
-    stage('Poll Job Status') {  // ✅ 已清除重複區塊
+    stage('Run All Postman Collections') {
+      steps {
+        script {
+          if (!fileExists(env.ENV_FILE)) {
+            error "❌ 找不到環境檔案：${env.ENV_FILE}"
+          }
+
+          def collections = [
+            "01申請廳主買域名",
+            "02申請刪除域名",
+            "03申請憑證",
+            "04申請展延憑證",
+            "06申請三級亂數"
+          ]
+
+          collections.each { name ->
+            def path = "${COLLECTION_DIR}/${name}.postman_collection.json"
+            if (fileExists(path)) {
+              sh """
+                echo ▶️ 執行 Postman 測試：${name}
+                newman run "${path}" \\
+                  --environment "${ENV_FILE}" \\
+                  --insecure \\
+                  --reporters cli,json,html,junit,allure \\
+                  --reporter-json-export "${REPORT_DIR}/${name}_report.json" \\
+                  --reporter-html-export "${HTML_REPORT_DIR}/${name}_report.html" \\
+                  --reporter-junit-export "${REPORT_DIR}/${name}_report.xml" \\
+                  --reporter-allure-export "allure-results" || true
+              """
+            } else {
+              echo "⚠️ 跳過：找不到 collection 檔案：${path}"
+            }
+          }
+        }
+      }
+    }
+
+    stage('Merge JSON Results') {
+      steps {
+        sh "jq -s . ${REPORT_DIR}/*_report.json > ${REPORT_DIR}/suites.json || true"
+      }
+    }
+
+    stage('Poll Workflow Job Status') {
       steps {
         script {
           def workflowId = sh(script: """
-              jq -r '
-                .run.executions[]
-                | select(.item.name == "申請廳主買域名")
-                | .assertions[]
-                | select(.assertion | startswith("workflow_id:"))
-                | .assertion
-              ' ${REPORT_DIR}/01申請廳主買域名_report.json | sed 's/workflow_id: //' | head -n1
-            """, returnStdout: true).trim()
-
+            jq -r '
+              .run.executions[]
+              | select(.item.name == "申請廳主買域名")
+              | .assertions[]
+              | select(.assertion | startswith("workflow_id:"))
+              | .assertion
+            ' ${REPORT_DIR}/01申請廳主買域名_report.json | sed 's/workflow_id: //' | head -n1
+          """, returnStdout: true).trim()
 
           if (!workflowId || workflowId == "null") {
             error("❌ 無法從報告中取得 workflow_id")
@@ -96,11 +127,11 @@ pipeline {
           ]
 
           def pollMax = 10
-          def pollInterval = 60 // 秒
+          def pollInterval = 60
           def success = false
 
           for (int attempt = 1; attempt <= pollMax; attempt++) {
-            echo "⏳ 第 ${attempt} 次輪詢，檢查 Job 狀態..."
+            echo "⏳ 第 ${attempt} 次輪詢..."
 
             def json = sh(
               script: """curl -s -k -X GET "${BASE_URL}/workflow_api/adm/workflows/${workflowId}/jobs" \\
@@ -117,7 +148,6 @@ pipeline {
             echo "📊 Job 狀態摘要: ${jobStatuses}"
 
             if (failedJobs) {
-              echo "❌ 發現失敗 Job："
               failedJobs.each { echo "🔴 ${it.name} - ${it.status} - ${it.message ?: '無訊息'}" }
               error("❌ Job 中有失敗項目，停止輪詢")
             }
@@ -128,7 +158,7 @@ pipeline {
                 echo "⏲️ 等待 ${pollInterval} 秒後重試..."
                 sleep time: pollInterval, unit: 'SECONDS'
               } else {
-                error("❌ 已達最大輪詢次數，仍有 Job 未完成")
+                error("❌ 輪詢次數用盡，Job 未完成")
               }
             } else {
               echo "✅ 所有 Job 已成功完成"
@@ -209,13 +239,11 @@ pipeline {
         }
         """
 
-        withCredentials([string(credentialsId: 'GOOGLE_CHAT_WEBHOOK', variable: 'WEBHOOK_URL')]) {
-          sh """
-            curl -k -X POST -H 'Content-Type: application/json' \\
-              -d '${message}' \\
-              "${WEBHOOK_URL}"
-          """
-        }
+        sh """
+          curl -k -X POST -H 'Content-Type: application/json' \\
+            -d '${message}' \\
+            "${WEBHOOK_URL}"
+        """
       }
     }
   }
