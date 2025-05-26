@@ -8,7 +8,7 @@ pipeline {
     ALLURE_RESULTS_DIR = "ALLURE-RESULTS"
     ENV_FILE = "/work/collections/environments/DEV.postman_environment.json"
     WEBHOOK_URL = credentials('GOOGLE_CHAT_WEBHOOK')
-    BASE_URL = "http://maid-cloud.vir999.com"  // ✅ 替換為實際網址
+    BASE_URL = "http://maid-cloud.vir999.com"
     YOUR_TOKEN_ENV_VAR = credentials('0f2edbf7-d6f8-4cf7-a248-d38c89cd99fc')
   }
 
@@ -127,11 +127,11 @@ pipeline {
           ]
 
           def pollMax = 10
-          def pollInterval = 300
+          def pollInterval = 300  // 每 5 分鐘
           def success = false
 
           for (int attempt = 1; attempt <= pollMax; attempt++) {
-            echo "⏳ 第 ${attempt} 次輪詢..."
+            echo "⏳ 第 ${attempt} 次輪詢 (${new Date()})"
 
             def json = sh(
               script: """curl -s -k -X GET "${BASE_URL}/workflow_api/adm/workflows/${workflowId}/jobs" \\
@@ -140,7 +140,13 @@ pipeline {
               returnStdout: true
             ).trim()
 
-            def jobs = readJSON text: json
+            def raw = readJSON text: json
+            def jobs = raw.jobs ?: raw
+
+            if (!(jobs instanceof List)) {
+              error("❌ 回傳格式非預期，jobs 不是陣列：${json}")
+            }
+
             def jobStatuses = jobs.collectEntries { [(it.name): it.status] }
             def failedJobs = jobs.findAll { it.status == "failure" }
             def incompleteJobs = jobs.findAll { it.status != "success" }
