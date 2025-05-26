@@ -17,7 +17,19 @@
 							"/*",
 							"var randomInt = Math.floor(Math.random() * 90000) + 10000;",
 							"pm.collectionVariables.set(\"RANDOMNUM\", randomInt);",
-							"*/"
+							"*/",
+							"const workflowId = pm.response.json().workflow_id;",
+							"",
+							"pm.sendRequest({",
+							"    url: 'http://localhost:8080/write_workflow_id',",
+							"    method: 'POST',",
+							"    header: { 'Content-Type': 'application/json' },",
+							"    body: {",
+							"        mode: 'raw',",
+							"        raw: JSON.stringify({ workflow_id: workflowId })",
+							"    }",
+							"});",
+							""
 						],
 						"type": "text/javascript",
 						"packages": {}
