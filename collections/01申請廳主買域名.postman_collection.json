@@ -143,9 +143,7 @@
 							"    console.warn(\"Domain field not found in response\");",
 							"}",
 							"",
-							"setTimeout(function() {",
-							"    console.log(\"延遲 1 秒後執行下一個 API...\");",
-							"}, 1000); ",
+							"",
 							"",
 							""
 						],

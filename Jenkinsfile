@@ -5,7 +5,7 @@ pipeline {
     COLLECTION_DIR = "/work/collections/collections"
     REPORT_DIR = "/work/reports"
     HTML_REPORT_DIR = "/work/reports/html"
-    ALLURE_RESULTS_DIR = "ALLURE-RESULTS"
+    ALLURE_RESULTS_DIR = "allure-results"
     ENV_FILE = "/work/collections/environments/DEV.postman_environment.json"
     WEBHOOK_URL = credentials('GOOGLE_CHAT_WEBHOOK')
     BASE_URL = "http://maid-cloud.vir999.com"
@@ -76,13 +76,13 @@ pipeline {
             if (fileExists(path)) {
               sh """
                 echo ▶️ 執行 Postman 測試：${name}
-                newman run "${path}" \\
-                  --environment "${ENV_FILE}" \\
-                  --insecure \\
-                  --reporters cli,json,html,junit,allure \\
-                  --reporter-json-export "${REPORT_DIR}/${name}_report.json" \\
-                  --reporter-html-export "${HTML_REPORT_DIR}/${name}_report.html" \\
-                  --reporter-junit-export "${REPORT_DIR}/${name}_report.xml" \\
+                newman run "${path}" \
+                  --environment "${ENV_FILE}" \
+                  --insecure \
+                  --reporters cli,json,html,junit,allure \
+                  --reporter-json-export "${REPORT_DIR}/${name}_report.json" \
+                  --reporter-html-export "${HTML_REPORT_DIR}/${name}_report.html" \
+                  --reporter-junit-export "${REPORT_DIR}/${name}_report.xml" \
                   --reporter-allure-export "allure-results" || true
               """
             } else {
@@ -100,85 +100,81 @@ pipeline {
     }
 
     stage('Poll Workflow Job Status') {
-      steps {
-        script {
-          def workflowId = sh(script: """
-            jq -r '
-              .run.executions[]
-              | select(.item.name == "申請廳主買域名")
-              | .assertions[]
-              | select(.assertion | startswith("workflow_id:"))
-              | .assertion
-            ' ${REPORT_DIR}/01申請廳主買域名_report.json | sed 's/workflow_id: //' | head -n1
-          """, returnStdout: true).trim()
+  steps {
+    script {
+      def workflowId = sh(script: """
+        jq -r '
+          .run.executions[]
+          | select(.item.name == "申請廳主買域名")
+          | .assertions[]
+          | select(.assertion | startswith("workflow_id:"))
+          | .assertion
+        ' ${REPORT_DIR}/01申請廳主買域名_report.json | sed 's/workflow_id: //' | head -n1
+      """, returnStdout: true).trim()
 
-          if (!workflowId || workflowId == "null") {
-            error("❌ 無法從報告中取得 workflow_id")
+      if (!workflowId || workflowId == "null") {
+        error("❌ 無法從報告中取得 workflow_id")
+      }
+
+      def pollMax = 10
+      def pollInterval = 300  // 5分鐘 = 300秒
+      def success = false
+
+      for (int attempt = 1; attempt <= pollMax; attempt++) {
+        echo "⏳ 第 ${attempt} 次輪詢，時間：${new Date().format("yyyy-MM-dd HH:mm:ss")}"
+
+        def json = sh(
+          script: """curl -s -k -X GET "${BASE_URL}/workflow_api/adm/workflows/${workflowId}/jobs" \\
+            -H "Content-Type: application/json" \\
+            -H "Authorization: Bearer ${YOUR_TOKEN_ENV_VAR}" """,
+          returnStdout: true
+        ).trim()
+
+        echo "🔍 API 回傳：${json}"
+
+        def rawResponse = readJSON text: json
+
+        def jobs = rawResponse.jobs ?: rawResponse
+        if (!(jobs instanceof List)) {
+          echo "⚠️ API 回應格式異常，無法取得 jobs 陣列"
+          error("❌ 回傳格式非預期，jobs 不是陣列，API 回傳訊息: ${json}")
+        }
+
+        def failedJobs = jobs.findAll { it.status == "failure" }
+        def incompleteJobs = jobs.findAll { it.status != "success" }
+
+        echo "📊 Jobs 狀態摘要:"
+        jobs.each { job -> echo " - ${job.name} : ${job.status}" }
+
+        if (failedJobs) {
+          failedJobs.each { echo "🔴 ${it.name} - ${it.status} - ${it.message ?: '無訊息'}" }
+          error("❌ Job 中有失敗項目，停止輪詢")
+        }
+
+        if (incompleteJobs) {
+          echo "⏸️ 尚有 ${incompleteJobs.size()} 個 Job 未完成"
+          if (attempt < pollMax) {
+            echo "🛏️ Sleep 開始時間：${new Date().format("yyyy-MM-dd HH:mm:ss")}"
+            sleep time: pollInterval, unit: 'SECONDS'
+            echo "😴 Sleep 結束時間：${new Date().format("yyyy-MM-dd HH:mm:ss")}"
+          } else {
+            error("❌ 輪詢次數用盡，Job 未完成")
           }
-
-          def expectedJobs = [
-            "CheckDomainBlocked",
-            "VerifyTLD",
-            "UpdateNameServer",
-            "UpdateDomainRecord",
-            "MergeErrorRecord",
-            "RecheckDomainResolution",
-            "RemoveTag"
-          ]
-
-          def pollMax = 10
-          def pollInterval = 300  // 每 5 分鐘
-          def success = false
-
-          for (int attempt = 1; attempt <= pollMax; attempt++) {
-            echo "⏳ 第 ${attempt} 次輪詢 (${new Date()})"
-
-            def json = sh(
-              script: """curl -s -k -X GET "${BASE_URL}/workflow_api/adm/workflows/${workflowId}/jobs" \\
-                -H "Content-Type: application/json" \\
-                -H "Authorization: Bearer ${YOUR_TOKEN_ENV_VAR}" """,
-              returnStdout: true
-            ).trim()
-
-            def raw = readJSON text: json
-            def jobs = raw.jobs ?: raw
-
-            if (!(jobs instanceof List)) {
-              error("❌ 回傳格式非預期，jobs 不是陣列：${json}")
-            }
-
-            def jobStatuses = jobs.collectEntries { [(it.name): it.status] }
-            def failedJobs = jobs.findAll { it.status == "failure" }
-            def incompleteJobs = jobs.findAll { it.status != "success" }
-
-            echo "📊 Job 狀態摘要: ${jobStatuses}"
-
-            if (failedJobs) {
-              failedJobs.each { echo "🔴 ${it.name} - ${it.status} - ${it.message ?: '無訊息'}" }
-              error("❌ Job 中有失敗項目，停止輪詢")
-            }
-
-            if (incompleteJobs) {
-              echo "⏸️ 尚有 ${incompleteJobs.size()} 個 Job 未完成"
-              if (attempt < pollMax) {
-                echo "⏲️ 等待 ${pollInterval} 秒後重試..."
-                sleep time: pollInterval, unit: 'SECONDS'
-              } else {
-                error("❌ 輪詢次數用盡，Job 未完成")
-              }
-            } else {
-              echo "✅ 所有 Job 已成功完成"
-              success = true
-              break
-            }
-          }
-
-          if (!success) {
-            error("❌ 輪詢結束但未成功完成")
-          }
+        } else {
+          echo "✅ 所有 Job 已成功完成"
+          success = true
+          break
         }
       }
+
+      if (!success) {
+        error("❌ 輪詢結束但未成功完成")
+      }
     }
+  }
+}
+
+
 
     stage('Publish HTML Reports') {
       steps {
@@ -206,7 +202,6 @@ pipeline {
 
   post {
     always {
-      echo '🧹 清理臨時文件...'
       script {
         def buildResult = currentBuild.currentResult
         def statusEmoji = buildResult == 'SUCCESS' ? '✅' : (buildResult == 'FAILURE' ? '❌' : '⚠️')
@@ -214,27 +209,27 @@ pipeline {
 
         def message = """
         {
-          "cards": [
+          \"cards\": [
             {
-              "header": {
-                "title": "${statusEmoji} Jenkins Pipeline 執行結果",
-                "subtitle": "專案：${env.JOB_NAME} (#${env.BUILD_NUMBER})",
-                "imageUrl": "https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png",
-                "imageStyle": "AVATAR"
+              \"header\": {
+                \"title\": \"${statusEmoji} Jenkins Pipeline 執行結果\",
+                \"subtitle\": \"專案：${env.JOB_NAME} (#${env.BUILD_NUMBER})\",
+                \"imageUrl\": \"https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png\",
+                \"imageStyle\": \"AVATAR\"
               },
-              "sections": [
+              \"sections\": [
                 {
-                  "widgets": [
+                  \"widgets\": [
                     {
-                      "keyValue": {
-                        "topLabel": "狀態",
-                        "content": "${buildResult}"
+                      \"keyValue\": {
+                        \"topLabel\": \"狀態\",
+                        \"content\": \"${buildResult}\"
                       }
                     },
                     {
-                      "keyValue": {
-                        "topLabel": "完成時間",
-                        "content": "${timestamp}"
+                      \"keyValue\": {
+                        \"topLabel\": \"完成時間\",
+                        \"content\": \"${timestamp}\"
                       }
                     }
                   ]
@@ -245,11 +240,11 @@ pipeline {
         }
         """
 
-        sh """
-          curl -k -X POST -H 'Content-Type: application/json' \\
-            -d '${message}' \\
-            "${WEBHOOK_URL}"
-        """
+        writeFile file: 'payload.json', text: message
+
+        withEnv(["WEBHOOK=${WEBHOOK_URL}"]) {
+          sh 'curl -k -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"'
+        }
       }
     }
   }
