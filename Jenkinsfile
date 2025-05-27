@@ -56,26 +56,105 @@ pipeline {
       }
     }
 
-    stage('Run All Postman Collections') {
+    stage('Run First Collection and Get Workflow ID') {
       steps {
         script {
-          if (!fileExists(env.ENV_FILE)) {
-            error "❌ 找不到環境檔案：${env.ENV_FILE}"
+          def collectionName = "01申請廳主買域名"
+          def collectionPath = "${COLLECTION_DIR}/${collectionName}.postman_collection.json"
+
+          if (!fileExists(collectionPath)) {
+            error "❌ 找不到 collection：${collectionPath}"
           }
 
-          def collections = [
-            "01申請廳主買域名",
+          echo "▶️ 執行 Postman 測試：${collectionName}"
+          sh """
+            newman run "${collectionPath}" \
+              --environment "${ENV_FILE}" \
+              --insecure \
+              --reporters cli,json,html,junit,allure \
+              --reporter-json-export "${REPORT_DIR}/${collectionName}_report.json" \
+              --reporter-html-export "${HTML_REPORT_DIR}/${collectionName}_report.html" \
+              --reporter-junit-export "${REPORT_DIR}/${collectionName}_report.xml" \
+              --reporter-allure-export "allure-results" || true
+          """
+
+          // 擷取 workflow_id
+          def report = readJSON file: "${REPORT_DIR}/${collectionName}_report.json"
+          def workflowId = report.run.executions[-1].variableScope?.find { it.key == "PD_WORKFLOW_ID" }?.value
+
+          if (!workflowId) {
+            error "❌ 無法從 ${collectionName} 回應中取得 workflow_id"
+          }
+
+          echo "📌 擷取到 workflow_id：${workflowId}"
+          env.WORKFLOW_ID = workflowId
+        }
+      }
+    }
+
+    stage('Poll Workflow Job Status') {
+      steps {
+        script {
+          def pollMaxAttempts = 10
+          def pollIntervalSeconds = 30
+          int attempt = 1
+
+          while (attempt <= pollMaxAttempts) {
+            echo "⏳ 第 ${attempt} 次輪詢，時間：${new Date()}"
+
+            sh """
+              newman run "${COLLECTION_DIR}/check-job-status.postman_collection.json" \
+                --environment "${ENV_FILE}" \
+                --env-var workflowId=${env.WORKFLOW_ID} \
+                --insecure \
+                --reporters cli,json \
+                --reporter-json-export job_status.json
+            """
+
+            def statusJson = readJSON file: 'job_status.json'
+            def variables = statusJson.run.executions[-1].result.collectionVariables
+
+            def failedCount = variables.find { it.key == 'poll_failed_job_count' }?.value?.toInteger() ?: 0
+            def pendingCount = variables.find { it.key == 'poll_pending_job_count' }?.value?.toInteger() ?: 0
+
+            echo "🔎 查詢結果：${failedCount} failed, ${pendingCount} pending"
+
+            if (failedCount > 0) {
+              error "❌ 輪詢失敗：有 ${failedCount} 個 Job 為 failure"
+            }
+
+            if (pendingCount == 0) {
+              echo "✅ 所有 job 狀態為 success，輪詢完成"
+              break
+            }
+
+            echo "😴 等待 ${pollIntervalSeconds} 秒..."
+            sleep pollIntervalSeconds
+            attempt++
+          }
+
+          if (attempt > pollMaxAttempts) {
+            error "❌ 超過最大輪詢次數 (${pollMaxAttempts})，流程結束"
+          }
+        }
+      }
+    }
+
+    stage('Run Remaining Postman Collections') {
+      steps {
+        script {
+          def otherCollections = [
             "02申請刪除域名",
             "03申請憑證",
             "04申請展延憑證",
             "06申請三級亂數"
           ]
 
-          collections.each { name ->
+          otherCollections.each { name ->
             def path = "${COLLECTION_DIR}/${name}.postman_collection.json"
             if (fileExists(path)) {
+              echo "▶️ 執行 Postman 測試：${name}"
               sh """
-                echo ▶️ 執行 Postman 測試：${name}
                 newman run "${path}" \
                   --environment "${ENV_FILE}" \
                   --insecure \
@@ -96,49 +175,6 @@ pipeline {
     stage('Merge JSON Results') {
       steps {
         sh "jq -s . ${REPORT_DIR}/*_report.json > ${REPORT_DIR}/suites.json || true"
-      }
-    }
-
-    stage('Poll Workflow Job Status') {
-      steps {
-        script {
-          def pollMaxAttempts = 10
-          def pollIntervalSeconds = 30
-          int attempt = 1
-
-          while (attempt <= pollMaxAttempts) {
-            echo "⏳ 第 ${attempt} 次輪詢，時間：${new Date()}"
-
-            sh "newman run check-job-status.postman_collection.json --env-var workflowId=${workflowId} --reporters cli,json --reporter-json-export job_status.json"
-
-            def statusJson = readJSON file: 'job_status.json'
-            def variables = statusJson.run.executions[-1].result.collectionVariables
-
-            def failedCount = variables.find { it.key == 'poll_failed_job_count' }?.value?.toInteger() ?: 0
-            def pendingCount = variables.find { it.key == 'poll_pending_job_count' }?.value?.toInteger() ?: 0
-
-            echo "🔎 第 ${attempt} 次查詢結果：${failedCount} failed, ${pendingCount} pending"
-
-            if (failedCount > 0) {
-              error "❌ 輪詢失敗：有 ${failedCount} 個 Job 為 failure"
-            }
-
-            if (pendingCount == 0) {
-              echo "✅ 所有 job 狀態為 success，輪詢完成"
-              break
-            }
-
-            echo "🛏️ Sleep 開始時間：${new Date()}"
-            sleep pollIntervalSeconds
-            echo "😴 Sleep 結束時間：${new Date()}"
-
-            attempt++
-          }
-
-          if (attempt > pollMaxAttempts) {
-            error "❌ 超過最大輪詢次數 (${pollMaxAttempts})，流程結束"
-          }
-        }
       }
     }
 
@@ -205,9 +241,7 @@ pipeline {
           ]
         }
         """
-
         writeFile file: 'payload.json', text: message
-
         withEnv(["WEBHOOK=${WEBHOOK_URL}"]) {
           sh 'curl -k -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"'
         }

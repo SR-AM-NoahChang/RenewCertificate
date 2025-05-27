@@ -51,6 +51,7 @@
 							"        pm.expect.fail(\"回應中無 workflow_id\");",
 							"    });",
 							"}",
+							"console.log(\"[workflow_id]::\" + workflowId);",
 							""
 						],
 						"type": "text/javascript",
