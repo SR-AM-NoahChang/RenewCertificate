@@ -57,40 +57,53 @@ pipeline {
     }
 
     stage('Run First Collection and Get Workflow ID') {
-      steps {
-        script {
-          def collectionName = "01申請廳主買域名"
-          def collectionPath = "${COLLECTION_DIR}/${collectionName}.postman_collection.json"
+  steps {
+    script {
+      def collectionName = "01申請廳主買域名"
+      def collectionPath = "${COLLECTION_DIR}/${collectionName}.postman_collection.json"
 
-          if (!fileExists(collectionPath)) {
-            error "❌ 找不到 collection：${collectionPath}"
-          }
+      if (!fileExists(collectionPath)) {
+        error "❌ 找不到 collection：${collectionPath}"
+      }
 
-          echo "▶️ 執行 Postman 測試：${collectionName}"
-          sh """
-            newman run "${collectionPath}" \
-              --environment "${ENV_FILE}" \
-              --insecure \
-              --reporters cli,json,html,junit,allure \
-              --reporter-json-export "${REPORT_DIR}/${collectionName}_report.json" \
-              --reporter-html-export "${HTML_REPORT_DIR}/${collectionName}_report.html" \
-              --reporter-junit-export "${REPORT_DIR}/${collectionName}_report.xml" \
-              --reporter-allure-export "allure-results" || true
-          """
+      echo "▶️ 執行 Postman 測試：${collectionName}"
+      sh """
+        newman run "${collectionPath}" \
+          --environment "${ENV_FILE}" \
+          --insecure \
+          --reporters cli,json,html,junit,allure \
+          --reporter-json-export "${REPORT_DIR}/${collectionName}_report.json" \
+          --reporter-html-export "${HTML_REPORT_DIR}/${collectionName}_report.html" \
+          --reporter-junit-export "${REPORT_DIR}/${collectionName}_report.xml" \
+          --reporter-allure-export "allure-results" || true
+      """
 
-          // 擷取 workflow_id
-          def report = readJSON file: "${REPORT_DIR}/${collectionName}_report.json"
-          def workflowId = report.run.executions[-1].variableScope?.find { it.key == "PD_WORKFLOW_ID" }?.value
+      // 擷取 workflow_id
+      def report = readJSON file: "${REPORT_DIR}/${collectionName}_report.json"
+      def variables = report.run?.executions?.last()?.variableScope ?: []
 
-          if (!workflowId) {
-            error "❌ 無法從 ${collectionName} 回應中取得 workflow_id"
-          }
+      def workflowId = variables.find { it.key == "PD_WORKFLOW_ID" }?.value
 
-          echo "📌 擷取到 workflow_id：${workflowId}"
-          env.WORKFLOW_ID = workflowId
+      // 備援：從 console log 中尋找 [workflow_id]::12345
+      if (!workflowId) {
+        def logText = report.run?.executions?.last()?.console?.join("\n") ?: ""
+        def matcher = logText =~ /\[workflow_id\]::(\d+)/
+        if (matcher.find()) {
+          workflowId = matcher.group(1)
+          echo "⚠️ 從 console log 備援取得 workflow_id: ${workflowId}"
         }
       }
+
+      if (!workflowId) {
+        error "❌ 無法從 ${collectionName} 回應中取得 workflow_id"
+      }
+
+      echo "📌 擷取到 workflow_id：${workflowId}"
+      env.WORKFLOW_ID = workflowId
     }
+  }
+}
+
 
     stage('Poll Workflow Job Status') {
       steps {
