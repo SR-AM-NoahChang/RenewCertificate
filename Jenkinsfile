@@ -99,82 +99,50 @@ pipeline {
       }
     }
 
+    int pollMaxAttempts = 10
+    int pollIntervalSeconds = 30
+
     stage('Poll Workflow Job Status') {
-  steps {
-    script {
-      def workflowId = sh(script: """
-        jq -r '
-          .run.executions[]
-          | select(.item.name == "申請廳主買域名")
-          | .assertions[]
-          | select(.assertion | startswith("workflow_id:"))
-          | .assertion
-        ' ${REPORT_DIR}/01申請廳主買域名_report.json | sed 's/workflow_id: //' | head -n1
-      """, returnStdout: true).trim()
+      steps {
+        script {
+          int attempt = 1
+          while (attempt <= pollMaxAttempts) {
+            echo "⏳ 第 ${attempt} 次輪詢，時間：${new Date()}"
 
-      if (!workflowId || workflowId == "null") {
-        error("❌ 無法從報告中取得 workflow_id")
-      }
+            // 執行 Postman collection，並將結果存成 JSON
+            sh "newman run check-job-status.postman_collection.json --env-var workflowId=${workflowId} --reporters cli,json --reporter-json-export job_status.json"
 
-      def pollMax = 10
-      def pollInterval = 300  // 5分鐘 = 300秒
-      def success = false
+            // 讀取結果
+            def statusJson = readJSON file: 'job_status.json'
+            def variables = statusJson.run.executions[-1].result.collectionVariables
 
-      for (int attempt = 1; attempt <= pollMax; attempt++) {
-        echo "⏳ 第 ${attempt} 次輪詢，時間：${new Date().format("yyyy-MM-dd HH:mm:ss")}"
+            def failedCount = variables.find { it.key == 'poll_failed_job_count' }?.value?.toInteger() ?: 0
+            def pendingCount = variables.find { it.key == 'poll_pending_job_count' }?.value?.toInteger() ?: 0
 
-        def json = sh(
-          script: """curl -s -k -X GET "${BASE_URL}/workflow_api/adm/workflows/${workflowId}/jobs" \\
-            -H "Content-Type: application/json" \\
-            -H "Authorization: Bearer ${YOUR_TOKEN_ENV_VAR}" """,
-          returnStdout: true
-        ).trim()
+            echo "🔎 第 ${attempt} 次查詢結果：${failedCount} failed, ${pendingCount} pending"
 
-        echo "🔍 API 回傳：${json}"
+            if (failedCount > 0) {
+              error "❌ 輪詢失敗：有 ${failedCount} 個 Job 為 failure"
+            }
 
-        def rawResponse = readJSON text: json
+            if (pendingCount == 0) {
+              echo "✅ 所有 job 狀態為 success，輪詢完成"
+              break
+            }
 
-        def jobs = rawResponse.jobs ?: rawResponse
-        if (!(jobs instanceof List)) {
-          echo "⚠️ API 回應格式異常，無法取得 jobs 陣列"
-          error("❌ 回傳格式非預期，jobs 不是陣列，API 回傳訊息: ${json}")
-        }
+            echo "🛏️ Sleep 開始時間：${new Date()}"
+            sleep pollIntervalSeconds
+            echo "😴 Sleep 結束時間：${new Date()}"
 
-        def failedJobs = jobs.findAll { it.status == "failure" }
-        def incompleteJobs = jobs.findAll { it.status != "success" }
-
-        echo "📊 Jobs 狀態摘要:"
-        jobs.each { job -> echo " - ${job.name} : ${job.status}" }
-
-        if (failedJobs) {
-          failedJobs.each { echo "🔴 ${it.name} - ${it.status} - ${it.message ?: '無訊息'}" }
-          error("❌ Job 中有失敗項目，停止輪詢")
-        }
-
-        if (incompleteJobs) {
-          echo "⏸️ 尚有 ${incompleteJobs.size()} 個 Job 未完成"
-          if (attempt < pollMax) {
-            echo "🛏️ Sleep 開始時間：${new Date().format("yyyy-MM-dd HH:mm:ss")}"
-            sleep time: pollInterval, unit: 'SECONDS'
-            echo "😴 Sleep 結束時間：${new Date().format("yyyy-MM-dd HH:mm:ss")}"
-          } else {
-            error("❌ 輪詢次數用盡，Job 未完成")
+            attempt++
           }
-        } else {
-          echo "✅ 所有 Job 已成功完成"
-          success = true
-          break
-        }
-      }
 
-      if (!success) {
-        error("❌ 輪詢結束但未成功完成")
+          if (attempt > pollMaxAttempts) {
+            error "❌ 超過最大輪詢次數 (${pollMaxAttempts})，流程結束"
+          }
+        }
       }
     }
-  }
-}
-
-
 
     stage('Publish HTML Reports') {
       steps {
