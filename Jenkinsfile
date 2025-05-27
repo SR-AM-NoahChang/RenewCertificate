@@ -107,54 +107,52 @@ pipeline {
     }
 
     stage('Poll Workflow Job Status') {
-      steps {
-        script {
-          int pollMaxAttempts = env.POLL_MAX_ATTEMPTS.toInteger()
-          int pollIntervalSeconds = env.POLL_INTERVAL_SECONDS.toInteger()
-          int attempt = 1
+  steps {
+    script {
+      def pollMaxAttempts = 10
+      def pollIntervalMinutes = 5
+      int attempt = 1
 
-          while (attempt <= pollMaxAttempts) {
-            echo "⏳ 第 ${attempt} 次輪詢，時間：${new Date()}"
+      while (attempt <= pollMaxAttempts) {
+        echo "⏳ 第 ${attempt} 次輪詢，時間：${new Date()}"
 
-            sh """
-              newman run "${COLLECTION_DIR}/check-job-status.postman_collection.json" \
-                --environment "${ENV_FILE}" \
-                --env-var workflowId=${env.WORKFLOW_ID} \
-                --insecure \
-                --reporters cli,json \
-                --reporter-json-export job_status.json
-            """
+        // 執行 Postman 輪詢 collection
+        sh """
+          newman run "${COLLECTION_DIR}/check-job-status.postman_collection.json" \
+            --environment "${ENV_FILE}" \
+            --env-var workflowId=${env.WORKFLOW_ID} \
+            --insecure \
+            --reporters cli,json \
+            --reporter-json-export job_status.json
+        """
 
-            def statusJson = readJSON file: 'job_status.json'
-            def variables = statusJson.run.executions[-1].variableScope ?: []
+        def statusJson = readJSON file: 'job_status.json'
+        def variables = statusJson.run.executions[-1].variableScope ?: []
 
-            def failedCount = variables.find { it.key == 'poll_failed_job_count' }?.value?.toInteger() ?: 0
-            def pendingCount = variables.find { it.key == 'poll_pending_job_count' }?.value?.toInteger() ?: 0
+        def pollEndReason = variables.find { it.key == 'poll_end_reason' }?.value ?: 'pending'
+        def failedCount = variables.find { it.key == 'poll_failed_job_count' }?.value?.toInteger() ?: 0
+        def pendingCount = variables.find { it.key == 'poll_pending_job_count' }?.value?.toInteger() ?: 0
 
-            echo "🔎 查詢結果：${failedCount} failed, ${pendingCount} pending"
+        echo "🔎 查詢結果：${failedCount} failed, ${pendingCount} pending, 結束原因: ${pollEndReason}"
 
-            if (failedCount > 0) {
-              error "❌ 輪詢失敗：有 ${failedCount} 個 Job 為 failure"
-            }
-
-            if (pendingCount == 0) {
-              echo "✅ 所有 job 狀態為 success，輪詢完成"
-              break
-            }
-
-            if (attempt < pollMaxAttempts) {
-              echo "😴 等待 ${pollIntervalSeconds} 秒..."
-              sleep pollIntervalSeconds
-            }
-            attempt++
-          }
-
-          if (attempt > pollMaxAttempts) {
-            error "❌ 超過最大輪詢次數 (${pollMaxAttempts})，流程結束"
-          }
+        if (pollEndReason == 'success') {
+          echo "✅ 所有 job 成功完成，停止輪詢"
+          break
+        } else if (pollEndReason == 'failure') {
+          error "❌ 有失敗的 job，停止輪詢"
+        } else if (pollEndReason == 'max_attempts_reached') {
+          error "⚠️ 超過最大輪詢次數，停止輪詢"
         }
+
+        // 尚未完成，等待 5 分鐘後繼續下一輪
+        echo "😴 等待 ${pollIntervalMinutes} 分鐘後繼續輪詢..."
+        sleep time: pollIntervalMinutes, unit: 'MINUTES'
+        attempt++
       }
     }
+  }
+}
+
 
     stage('Run Remaining Postman Collections') {
       steps {
