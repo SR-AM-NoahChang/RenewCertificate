@@ -99,20 +99,18 @@ pipeline {
       }
     }
 
-    int pollMaxAttempts = 10
-    int pollIntervalSeconds = 30
-
     stage('Poll Workflow Job Status') {
       steps {
         script {
+          def pollMaxAttempts = 10
+          def pollIntervalSeconds = 30
           int attempt = 1
+
           while (attempt <= pollMaxAttempts) {
             echo "⏳ 第 ${attempt} 次輪詢，時間：${new Date()}"
 
-            // 執行 Postman collection，並將結果存成 JSON
             sh "newman run check-job-status.postman_collection.json --env-var workflowId=${workflowId} --reporters cli,json --reporter-json-export job_status.json"
 
-            // 讀取結果
             def statusJson = readJSON file: 'job_status.json'
             def variables = statusJson.run.executions[-1].result.collectionVariables
 
