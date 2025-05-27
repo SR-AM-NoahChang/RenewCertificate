@@ -18,6 +18,8 @@
 							"var randomInt = Math.floor(Math.random() * 90000) + 10000;",
 							"pm.collectionVariables.set(\"RANDOMNUM\", randomInt);",
 							"*/",
+							"pm.collectionVariables.set(\"poll_count\", \"0\");",
+							"",
 							"",
 							""
 						],
@@ -222,7 +224,7 @@
 							"    \"RemoveTag\"",
 							"];",
 							"",
-							"// 儲存 job_id",
+							"// 儲存各個 Job ID",
 							"expectedNames.forEach(name => {",
 							"    const job = responseJson.find(item => item.name === name);",
 							"    if (job) {",
@@ -230,12 +232,49 @@
 							"    }",
 							"});",
 							"",
-							"// 統計",
+							"// 統計 job 狀態",
 							"const failedJobs = responseJson.filter(job => job.status === \"failure\");",
 							"const pendingJobs = responseJson.filter(job => job.status !== \"success\" && job.status !== \"failure\");",
 							"",
+							"// 存到變數供全域使用",
 							"pm.collectionVariables.set(\"poll_failed_job_count\", failedJobs.length.toString());",
 							"pm.collectionVariables.set(\"poll_pending_job_count\", pendingJobs.length.toString());",
+							"",
+							"// 記錄 polling 次數",
+							"let pollCount = parseInt(pm.collectionVariables.get(\"poll_count\") || \"0\", 10);",
+							"pollCount++;",
+							"pm.collectionVariables.set(\"poll_count\", pollCount.toString());",
+							"",
+							"console.log(`🔁 Polling #${pollCount} - Pending: ${pendingJobs.length}, Failed: ${failedJobs.length}`);",
+							"",
+							"// 檢查是否繼續等待（最多 10 次，每次等 5 秒）",
+							"if (pendingJobs.length > 0 && pollCount < 10) {",
+							"    setTimeout(() => {",
+							"        postman.setNextRequest(\"取得廳主買域名項目資料 (Job狀態檢查)\");",
+							"    }, 5000);",
+							"} else {",
+							"    pm.test(\"✅ 所有 Jobs 已完成\", function () {",
+							"        pm.expect(pendingJobs.length).to.eql(0);",
+							"    });",
+							"",
+							"    pm.test(\"✅ 所有 Jobs 成功\", function () {",
+							"        pm.expect(failedJobs.length).to.eql(0);",
+							"    });",
+							"",
+							"    // 清除 counter",
+							"    pm.collectionVariables.set(\"poll_count\", \"0\");",
+							"}",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"",
 							""
 						],
 						"type": "text/javascript",
@@ -475,6 +514,18 @@
 		},
 		{
 			"key": "ran_domain",
+			"value": ""
+		},
+		{
+			"key": "poll_failed_job_count",
+			"value": ""
+		},
+		{
+			"key": "poll_pending_job_count",
+			"value": ""
+		},
+		{
+			"key": "poll_count",
 			"value": ""
 		}
 	]

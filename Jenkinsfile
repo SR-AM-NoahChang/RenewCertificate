@@ -10,6 +10,10 @@ pipeline {
     WEBHOOK_URL = credentials('GOOGLE_CHAT_WEBHOOK')
     BASE_URL = "http://maid-cloud.vir999.com"
     YOUR_TOKEN_ENV_VAR = credentials('0f2edbf7-d6f8-4cf7-a248-d38c89cd99fc')
+
+    // 新增輪詢參數
+    POLL_INTERVAL_SECONDS = '300'  // 5分鐘
+    POLL_MAX_ATTEMPTS = '10'
   }
 
   stages {
@@ -57,59 +61,56 @@ pipeline {
     }
 
     stage('Run First Collection and Get Workflow ID') {
-  steps {
-    script {
-      def collectionName = "01申請廳主買域名"
-      def collectionPath = "${COLLECTION_DIR}/${collectionName}.postman_collection.json"
+      steps {
+        script {
+          def collectionName = "01申請廳主買域名"
+          def collectionPath = "${COLLECTION_DIR}/${collectionName}.postman_collection.json"
 
-      if (!fileExists(collectionPath)) {
-        error "❌ 找不到 collection：${collectionPath}"
-      }
+          if (!fileExists(collectionPath)) {
+            error "❌ 找不到 collection：${collectionPath}"
+          }
 
-      echo "▶️ 執行 Postman 測試：${collectionName}"
-      sh """
-        newman run "${collectionPath}" \
-          --environment "${ENV_FILE}" \
-          --insecure \
-          --reporters cli,json,html,junit,allure \
-          --reporter-json-export "${REPORT_DIR}/${collectionName}_report.json" \
-          --reporter-html-export "${HTML_REPORT_DIR}/${collectionName}_report.html" \
-          --reporter-junit-export "${REPORT_DIR}/${collectionName}_report.xml" \
-          --reporter-allure-export "allure-results" || true
-      """
+          echo "▶️ 執行 Postman 測試：${collectionName}"
+          sh """
+            newman run "${collectionPath}" \
+              --environment "${ENV_FILE}" \
+              --insecure \
+              --reporters cli,json,html,junit,allure \
+              --reporter-json-export "${REPORT_DIR}/${collectionName}_report.json" \
+              --reporter-html-export "${HTML_REPORT_DIR}/${collectionName}_report.html" \
+              --reporter-junit-export "${REPORT_DIR}/${collectionName}_report.xml" \
+              --reporter-allure-export "allure-results" || true
+          """
 
-      // 擷取 workflow_id
-      def report = readJSON file: "${REPORT_DIR}/${collectionName}_report.json"
-      def variables = report.run?.executions?.last()?.variableScope ?: []
+          def report = readJSON file: "${REPORT_DIR}/${collectionName}_report.json"
+          def variables = report.run?.executions?.last()?.variableScope ?: []
 
-      def workflowId = variables.find { it.key == "PD_WORKFLOW_ID" }?.value
+          def workflowId = variables.find { it.key == "PD_WORKFLOW_ID" }?.value
 
-      // 備援：從 console log 中尋找 [workflow_id]::12345
-      if (!workflowId) {
-        def logText = report.run?.executions?.last()?.console?.join("\n") ?: ""
-        def matcher = logText =~ /\[workflow_id\]::(\d+)/
-        if (matcher.find()) {
-          workflowId = matcher.group(1)
-          echo "⚠️ 從 console log 備援取得 workflow_id: ${workflowId}"
+          if (!workflowId) {
+            def logText = report.run?.executions?.last()?.console?.join("\n") ?: ""
+            def matcher = logText =~ /\[workflow_id\]::(\d+)/
+            if (matcher.find()) {
+              workflowId = matcher.group(1)
+              echo "⚠️ 從 console log 備援取得 workflow_id: ${workflowId}"
+            }
+          }
+
+          if (!workflowId) {
+            error "❌ 無法從 ${collectionName} 回應中取得 workflow_id"
+          }
+
+          echo "📌 擷取到 workflow_id：${workflowId}"
+          env.WORKFLOW_ID = workflowId
         }
       }
-
-      if (!workflowId) {
-        error "❌ 無法從 ${collectionName} 回應中取得 workflow_id"
-      }
-
-      echo "📌 擷取到 workflow_id：${workflowId}"
-      env.WORKFLOW_ID = workflowId
     }
-  }
-}
-
 
     stage('Poll Workflow Job Status') {
       steps {
         script {
-          def pollMaxAttempts = 10
-          def pollIntervalSeconds = 30
+          int pollMaxAttempts = env.POLL_MAX_ATTEMPTS.toInteger()
+          int pollIntervalSeconds = env.POLL_INTERVAL_SECONDS.toInteger()
           int attempt = 1
 
           while (attempt <= pollMaxAttempts) {
@@ -125,7 +126,7 @@ pipeline {
             """
 
             def statusJson = readJSON file: 'job_status.json'
-            def variables = statusJson.run.executions[-1].result.collectionVariables
+            def variables = statusJson.run.executions[-1].variableScope ?: []
 
             def failedCount = variables.find { it.key == 'poll_failed_job_count' }?.value?.toInteger() ?: 0
             def pendingCount = variables.find { it.key == 'poll_pending_job_count' }?.value?.toInteger() ?: 0
@@ -141,8 +142,10 @@ pipeline {
               break
             }
 
-            echo "😴 等待 ${pollIntervalSeconds} 秒..."
-            sleep pollIntervalSeconds
+            if (attempt < pollMaxAttempts) {
+              echo "😴 等待 ${pollIntervalSeconds} 秒..."
+              sleep pollIntervalSeconds
+            }
             attempt++
           }
 
