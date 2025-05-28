@@ -107,9 +107,10 @@ pipeline {
 
             def json = readJSON text: response
             def failedJobs = json.findAll { it.status == 'failure' }
-            def pendingJobs = json.findAll { it.status != 'success' && it.status != 'failure' }
+            def blockedJobs = json.findAll { it.status == 'blocked' }
+            def pendingJobs = json.findAll { !(it.status in ['success', 'failure', 'blocked']) }
 
-            if (failedJobs) {
+            if (failedJobs.size() > 0) {
               def failedNames = failedJobs.collect { it.name }.join(', ')
               echo "❌ 偵測到失敗的 Job：${failedNames}"
 
@@ -138,11 +139,41 @@ pipeline {
               error("❌ 任務失敗，已通知 webhook")
             }
 
-            if (pendingJobs.isEmpty()) {
-              echo "✅ 所有 Job 已完成，提前結束輪詢"
+            if (blockedJobs.size() > 0) {
+              def blockedNames = blockedJobs.collect { it.name }.join(', ')
+              echo "⛔ 偵測到 blocked 的 Job：${blockedNames}"
+
+              writeFile file: 'payload.json', text: """{
+                "cards": [{
+                  "header": {
+                    "title": "⛔ Jenkins 輪詢任務阻塞",
+                    "subtitle": "Workflow Job Blocked",
+                    "imageUrl": "https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png"
+                  },
+                  "sections": [{
+                    "widgets": [{
+                      "keyValue": {
+                        "topLabel": "阻塞 Job",
+                        "content": "${blockedNames}"
+                      }
+                    }]
+                  }]
+                }]
+              }"""
+
+              withEnv(["WEBHOOK_URL=${WEBHOOK_URL}"]) {
+                sh 'curl -k -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK_URL"'
+              }
+
+              error("⛔ 任務阻塞，已通知 webhook")
+            }
+
+            if (pendingJobs.size() == 0) {
+              echo "✅ 所有 job 已完成，提前結束輪詢"
               success = true
               break
             }
+
 
             retryCount++
             echo "⏳ 尚有 ${pendingJobs.size()} 個未完成 Job，等待 ${delaySeconds} 秒後進行下一次輪詢..."
@@ -179,7 +210,6 @@ pipeline {
         }
       }
     }
-
 
     stage('Run 15清除測試域名') {
       steps {
