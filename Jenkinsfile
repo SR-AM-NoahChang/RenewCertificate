@@ -101,12 +101,16 @@ pipeline {
 
             echo "🔎 取得狀態結果：${response}"
 
-            def json = readJSON text: response
             def failedJobs = json.findAll { it.status == 'failure' }
-            def pendingJobs = json.findAll { it.status != 'success' && it.status != 'failure' }
+            def blockedJobs = json.findAll { it.status == 'blocked' }
+            def pendingJobs = json.findAll { !(it.status in ['success', 'failure', 'blocked']) }
 
             if (failedJobs.size() > 0) {
               error("❌ Job failure detected: ${failedJobs.collect { it.name }}")
+            }
+
+            if (blockedJobs.size() > 0) {
+              error("⛔ Job blocked detected: ${blockedJobs.collect { it.name }}")
             }
 
             if (pendingJobs.size() == 0) {
