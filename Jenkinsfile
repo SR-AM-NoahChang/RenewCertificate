@@ -126,7 +126,7 @@ pipeline {
                writeFile file: 'payload.json', text: """{
                   "cards": [{
                     "header": {
-                      "title": "🚨 取得廳主買域名項目資料 (Job狀態檢查 - 異常",
+                      "title": "🚨 取得廳主買域名項目資料 (Job狀態檢查 - 異常)",
                       "subtitle": "Workflow: ${workflowId}",
                       "imageUrl": "https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png"
                     },
