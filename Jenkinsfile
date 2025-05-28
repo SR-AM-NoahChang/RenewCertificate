@@ -126,6 +126,29 @@ pipeline {
       }
     }
 
+    stage('Run 15清除測試域名') {
+      steps {
+        script {
+          def collectionPath = "${COLLECTION_DIR}/15清除測試域名.postman_collection.json"
+          if (fileExists(collectionPath)) {
+            echo "🧹 開始執行測試資料清除 collection：15清除測試域名"
+            sh """
+              newman run "${collectionPath}" \
+                --environment "${ENV_FILE}" \
+                --insecure \
+                --reporters cli,json,html,junit,allure \
+                --reporter-json-export "${REPORT_DIR}/15_cleanup_report.json" \
+                --reporter-html-export "${HTML_REPORT_DIR}/15_cleanup_report.html" \
+                --reporter-junit-export "${REPORT_DIR}/15_cleanup_report.xml" \
+                --reporter-allure-export "allure-results" || true
+            """
+          } else {
+            echo "⚠️ 找不到 collection 檔案：${collectionPath}，跳過清除流程"
+          }
+        }
+      }
+    }
+
     stage('Run 剩餘 Postman Collections') {
       steps {
         script {
