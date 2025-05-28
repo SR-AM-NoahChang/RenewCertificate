@@ -75,52 +75,111 @@ pipeline {
     stage('Poll Workflow Job Status') {
       steps {
         script {
-          def maxRetries = 30
+          def exported = readJSON file: '/tmp/exported_env.json'
+          def workflowId = exported.values.find { it.key == 'PD_WORKFLOW_ID' }?.value
+
+          if (!workflowId) {
+            error("❌ 無法從 /tmp/exported_env.json 中取得 PD_WORKFLOW_ID")
+          }
+
+          echo "📌 取得 workflowId：${workflowId}"
+
+          def maxRetries = 10
+          def delaySeconds = 300
           def retryCount = 0
           def success = false
 
-          while (retryCount < maxRetries && !success) {
-            echo "🔄 第 ${retryCount + 1} 次輪詢 workflow 狀態..."
+          while (retryCount < maxRetries) {
+            def timestamp = new Date().format("yyyy-MM-dd HH:mm:ss", TimeZone.getTimeZone('Asia/Taipei'))
+            echo "🔄 第 ${retryCount + 1} 次輪詢 workflow 狀態（${timestamp}）..."
 
-            def response = sh(script: """
-              curl -s -X GET http://maid-cloud.vir999.com/workflow_api/adm/workflows/${workflow_id}/jobs \\
-                -H "X-API-Key: ${ADM_KEY}" \\
-                -H "Accept: application/json" \\
-                -H "Content-Type: application/json"
-            """, returnStdout: true).trim()
+            def response = sh(
+              script: """
+                curl -s -X GET "${BASE_URL}/workflow_api/adm/workflows/${workflowId}/jobs" \\
+                  -H "X-API-Key: ${ADM_KEY}" \\
+                  -H "Accept: application/json" \\
+                  -H "Content-Type: application/json"
+              """,
+              returnStdout: true
+            ).trim()
 
-            echo "🔎 取得狀態結果：${response}"
+            echo "🔎 API 回應：${response}"
 
             def json = readJSON text: response
-
             def failedJobs = json.findAll { it.status == 'failure' }
-            def blockedJobs = json.findAll { it.status == 'blocked' }
-            def pendingJobs = json.findAll { !(it.status in ['success', 'failure', 'blocked']) }
+            def pendingJobs = json.findAll { it.status != 'success' && it.status != 'failure' }
 
             if (failedJobs) {
-              error("❌ Job failure detected: ${failedJobs.collect { it.name }}")
+              def failedNames = failedJobs.collect { it.name }.join(', ')
+              echo "❌ 偵測到失敗的 Job：${failedNames}"
+
+              writeFile file: 'payload.json', text: """{
+                "cards": [{
+                  "header": {
+                    "title": "❌ Jenkins 輪詢任務失敗",
+                    "subtitle": "Workflow Job Failure",
+                    "imageUrl": "https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png"
+                  },
+                  "sections": [{
+                    "widgets": [{
+                      "keyValue": {
+                        "topLabel": "失敗 Job",
+                        "content": "${failedNames}"
+                      }
+                    }]
+                  }]
+                }]
+              }"""
+
+              withEnv(["WEBHOOK_URL=${WEBHOOK_URL}"]) {
+                sh 'curl -k -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK_URL"'
+              }
+
+              error("❌ 任務失敗，已通知 webhook")
             }
 
-            if (blockedJobs) {
-              error("⛔ Job blocked detected: ${blockedJobs.collect { it.name }}")
-            }
-
-            if (!pendingJobs) {
-              echo "✅ 所有 job 已完成，提前結束輪詢"
+            if (pendingJobs.isEmpty()) {
+              echo "✅ 所有 Job 已完成，提前結束輪詢"
               success = true
               break
             }
 
-            sleep(time: 10, unit: 'SECONDS')
             retryCount++
+            echo "⏳ 尚有 ${pendingJobs.size()} 個未完成 Job，等待 ${delaySeconds} 秒後進行下一次輪詢..."
+            sleep time: delaySeconds, unit: 'SECONDS'
           }
 
           if (!success) {
-            error("⏰ 超過最大輪詢次數，仍有 job 未完成")
+            echo "⏰ 超過最大重試次數（${maxRetries} 次），workflow 未完成"
+
+            writeFile file: 'payload.json', text: """{
+              "cards": [{
+                "header": {
+                  "title": "⏰ Jenkins 輪詢超時失敗",
+                  "subtitle": "Workflow Timeout",
+                  "imageUrl": "https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png"
+                },
+                "sections": [{
+                  "widgets": [{
+                    "keyValue": {
+                      "topLabel": "Workflow ID",
+                      "content": "${workflowId}"
+                    }
+                  }]
+                }]
+              }]
+            }"""
+
+            withEnv(["WEBHOOK_URL=${WEBHOOK_URL}"]) {
+              sh 'curl -k -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK_URL"'
+            }
+
+            error("⏰ Workflow Timeout，已通知 webhook")
           }
         }
       }
     }
+
 
     stage('Run 15清除測試域名') {
       steps {
