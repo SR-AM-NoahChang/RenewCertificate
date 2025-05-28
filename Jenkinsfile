@@ -9,7 +9,7 @@ pipeline {
     ENV_FILE = "/work/collections/environments/DEV.postman_environment.json"
     WEBHOOK_URL = credentials('GOOGLE_CHAT_WEBHOOK')
     BASE_URL = "http://maid-cloud.vir999.com"
-    ADM_KEY = credentials('ADM_KEY')
+    ADM_KEY = credentials('DEV_ADM_KEY')
   }
 
   stages {
@@ -59,7 +59,7 @@ pipeline {
     stage('Run 01申請廳主買域名 並導出環境變數') {
       steps {
         sh '''
-          newman run "/work/collections/collections/01申請廳主買域名.postman_collection.json" \
+          newman run "${COLLECTION_DIR}/01申請廳主買域名.postman_collection.json" \
             --environment "${ENV_FILE}" \
             --export-environment "/tmp/exported_env.json" \
             --insecure \
@@ -102,12 +102,10 @@ pipeline {
             echo "🔎 取得狀態結果：${response}"
 
             def json = readJSON text: response
-
             def failedJobs = json.findAll { it.status == 'failure' }
             def pendingJobs = json.findAll { it.status != 'success' && it.status != 'failure' }
 
             if (failedJobs.size() > 0) {
-              echo "❌ 有 job 失敗，結束輪詢"
               error("❌ Job failure detected: ${failedJobs.collect { it.name }}")
             }
 
@@ -164,7 +162,7 @@ pipeline {
       steps {
         publishHTML(target: [
           reportDir: "${HTML_REPORT_DIR}",
-          reportFiles: 'index.html',
+          reportFiles: '01_report.html', // 或其他主頁，依實際報告為主
           reportName: 'Postman HTML Reports',
           allowMissing: true,
           alwaysLinkToLastBuild: true,
@@ -186,48 +184,50 @@ pipeline {
 
   post {
     always {
-      script {
-        def buildResult = currentBuild.currentResult
-        def statusEmoji = buildResult == 'SUCCESS' ? '✅' : (buildResult == 'FAILURE' ? '❌' : '⚠️')
-        def timestamp = new Date().format("yyyy-MM-dd HH:mm:ss", TimeZone.getTimeZone('Asia/Taipei'))
+      node {
+        script {
+          def buildResult = currentBuild.currentResult
+          def statusEmoji = buildResult == 'SUCCESS' ? '✅' : (buildResult == 'FAILURE' ? '❌' : '⚠️')
+          def timestamp = new Date().format("yyyy-MM-dd HH:mm:ss", TimeZone.getTimeZone('Asia/Taipei'))
 
-        def message = """
-        {
-          \"cards\": [
-            {
-              \"header\": {
-                \"title\": \"${statusEmoji} Jenkins Pipeline 執行結果\",
-                \"subtitle\": \"專案：${env.JOB_NAME} (#${env.BUILD_NUMBER})\",
-                \"imageUrl\": \"https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png\",
-                \"imageStyle\": \"AVATAR\"
-              },
-              \"sections\": [
-                {
-                  \"widgets\": [
-                    {
-                      \"keyValue\": {
-                        \"topLabel\": \"狀態\",
-                        \"content\": \"${buildResult}\"
+          def message = """
+          {
+            \"cards\": [
+              {
+                \"header\": {
+                  \"title\": \"${statusEmoji} Jenkins Pipeline 執行結果\",
+                  \"subtitle\": \"專案：${env.JOB_NAME} (#${env.BUILD_NUMBER})\",
+                  \"imageUrl\": \"https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png\",
+                  \"imageStyle\": \"AVATAR\"
+                },
+                \"sections\": [
+                  {
+                    \"widgets\": [
+                      {
+                        \"keyValue\": {
+                          \"topLabel\": \"狀態\",
+                          \"content\": \"${buildResult}\"
+                        }
+                      },
+                      {
+                        \"keyValue\": {
+                          \"topLabel\": \"完成時間\",
+                          \"content\": \"${timestamp}\"
+                        }
                       }
-                    },
-                    {
-                      \"keyValue\": {
-                        \"topLabel\": \"完成時間\",
-                        \"content\": \"${timestamp}\"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-        """
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+          """
 
-        writeFile file: 'payload.json', text: message
+          writeFile file: 'payload.json', text: message
 
-        withEnv(["WEBHOOK=${WEBHOOK_URL}"]) {
-          sh 'curl -k -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"'
+          withEnv(["WEBHOOK=${WEBHOOK_URL}"]) {
+            sh 'curl -k -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"'
+          }
         }
       }
     }
