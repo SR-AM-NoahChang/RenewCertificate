@@ -9,7 +9,6 @@ pipeline {
     ENV_FILE = "/work/collections/environments/DEV.postman_environment.json"
     WEBHOOK_URL = credentials('GOOGLE_CHAT_WEBHOOK')
     BASE_URL = "http://maid-cloud.vir999.com"
-    YOUR_TOKEN_ENV_VAR = credentials('0f2edbf7-d6f8-4cf7-a248-d38c89cd99fc')
     ADM_KEY = credentials('ADM_KEY')
   }
 
@@ -57,83 +56,63 @@ pipeline {
       }
     }
 
-    stage('Export Environment with workflowId') {
+    stage('Run 01申請廳主買域名 並導出環境變數') {
       steps {
-        sh """
-          newman run "${COLLECTION_DIR}/01申請廳主買域名.postman_collection.json" \\
-            --environment "${ENV_FILE}" \\
-            --insecure \\
-            --export-environment "/tmp/exported_env.json" \\
-            --reporters cli,json \\
-            --reporter-json-export "${REPORT_DIR}/01申請廳主買域名_report.json"
-        """
-      }
-    }
-
-    stage('Load workflowId') {
-      steps {
-        script {
-          def exportedEnv = readJSON file: "/tmp/exported_env.json"
-          def pwfId = exportedEnv.values.find { it.key == 'PD_WORKFLOW_ID' }?.value
-
-          if (!pwfId) {
-            error "❌ 無法從 exported_env.json 找到 PD_WORKFLOW_ID"
-          }
-
-          env.PD_WORKFLOW_ID = pwfId
-          echo "🆔 擷取到 PD_WORKFLOW_ID: ${env.PD_WORKFLOW_ID}"
-        }
+        sh '''
+          newman run "/work/collections/collections/01申請廳主買域名.postman_collection.json" \
+            --environment "${ENV_FILE}" \
+            --export-environment "/tmp/exported_env.json" \
+            --insecure \
+            --reporters cli,json,html,junit,allure \
+            --reporter-json-export "${REPORT_DIR}/01_report.json" \
+            --reporter-html-export "${HTML_REPORT_DIR}/01_report.html" \
+            --reporter-junit-export "${REPORT_DIR}/01_report.xml" \
+            --reporter-allure-export "allure-results"
+        '''
       }
     }
 
     stage('Poll Workflow Job Status') {
       steps {
         script {
+          def exported = readJSON file: '/tmp/exported_env.json'
+          def workflowId = exported.values.find { it.key == 'PD_WORKFLOW_ID' }?.value
+          if (!workflowId) {
+            error("❌ 無法從 exported_env.json 中取得 PD_WORKFLOW_ID")
+          }
+
           def maxRetries = 10
           def delaySeconds = 300
           def retryCount = 0
           def success = false
 
           while (retryCount < maxRetries) {
-            echo "🔄 第 ${retryCount + 1} 次輪詢 workflow 狀態 (ID=${env.PD_WORKFLOW_ID})..."
+            echo "🔄 第 ${retryCount + 1} 次輪詢 workflow 狀態..."
 
             def response = sh(
               script: """
-                curl -s -X GET "${BASE_URL}/workflow_api/adm/workflows/${env.PD_WORKFLOW_ID}/jobs" \\
-                  -H "Accept: application/json" \\
-                  -H "Content-Type: application/json" \\
-                  -H "X-API-Key: ${ADM_KEY}"
+                curl -s -X GET "${BASE_URL}/workflow_api/adm/workflows/${workflowId}/jobs" \
+                  -H "X-API-Key: ${ADM_KEY}" \
+                  -H "Accept: application/json" \
+                  -H "Content-Type: application/json"
               """,
               returnStdout: true
             ).trim()
 
-            echo "🔎 回傳：${response}"
+            echo "🔎 取得狀態結果：${response}"
 
-            def jobs
-            try {
-              def json = readJSON text: response
-              jobs = json // 如果回傳本身就是 array
-              if (!(jobs instanceof List)) {
-                error "❌ 回傳格式錯誤，預期為 job 陣列"
-              }
-            } catch (err) {
-              error "❌ 解析 JSON 回傳失敗：${err.message}"
-            }
+            def json = readJSON text: response
 
-            def failedJobs = jobs.findAll { it.status == 'failure' }
-            def pendingJobs = jobs.findAll { it.status != 'success' && it.status != 'failure' }
+            def failedJobs = json.findAll { it.status == 'failure' }
+            def pendingJobs = json.findAll { it.status != 'success' && it.status != 'failure' }
 
             if (failedJobs.size() > 0) {
-              echo "❌ 發現失敗的 Job："
-              failedJobs.each { job -> echo "🔴 ${job.name} -> ${job.status}" }
-              error "輪詢失敗：存在 failure 狀態的 job"
+              echo "❌ 有 job 失敗，結束輪詢"
+              error("❌ Job failure detected: ${failedJobs.collect { it.name }}")
             }
 
-            if (pendingJobs.size() > 0) {
-              echo "⏳ 尚有未完成 Job："
-              pendingJobs.each { job -> echo "🟡 ${job.name} -> ${job.status}" }
-            } else {
-              echo "✅ 所有 job 成功完成！"
+            if (pendingJobs.size() == 0) {
+              echo "✅ 所有 job 已完成，提前結束輪詢"
               success = true
               break
             }
@@ -143,21 +122,16 @@ pipeline {
           }
 
           if (!success) {
-            error "⏰ 達到最大輪詢次數仍未完成"
+            error("⏰ 超過最大重試次數，workflow 未完成")
           }
         }
       }
     }
 
-    stage('Run All Postman Collections') {
+    stage('Run 剩餘 Postman Collections') {
       steps {
         script {
-          if (!fileExists(env.ENV_FILE)) {
-            error "❌ 找不到環境檔案：${env.ENV_FILE}"
-          }
-
           def collections = [
-            // "01申請廳主買域名", // 已提前執行過，避免重複
             "02申請刪除域名",
             "03申請憑證",
             "04申請展延憑證",
@@ -169,13 +143,13 @@ pipeline {
             if (fileExists(path)) {
               sh """
                 echo ▶️ 執行 Postman 測試：${name}
-                newman run "${path}" \\
-                  --environment "${ENV_FILE}" \\
-                  --insecure \\
-                  --reporters cli,json,html,junit,allure \\
-                  --reporter-json-export "${REPORT_DIR}/${name}_report.json" \\
-                  --reporter-html-export "${HTML_REPORT_DIR}/${name}_report.html" \\
-                  --reporter-junit-export "${REPORT_DIR}/${name}_report.xml" \\
+                newman run "${path}" \
+                  --environment "${ENV_FILE}" \
+                  --insecure \
+                  --reporters cli,json,html,junit,allure \
+                  --reporter-json-export "${REPORT_DIR}/${name}_report.json" \
+                  --reporter-html-export "${HTML_REPORT_DIR}/${name}_report.html" \
+                  --reporter-junit-export "${REPORT_DIR}/${name}_report.xml" \
                   --reporter-allure-export "allure-results" || true
               """
             } else {
