@@ -183,53 +183,52 @@ pipeline {
   }
 
   post {
-    always {
-      node {
-        script {
-          def buildResult = currentBuild.currentResult
-          def statusEmoji = buildResult == 'SUCCESS' ? '✅' : (buildResult == 'FAILURE' ? '❌' : '⚠️')
-          def timestamp = new Date().format("yyyy-MM-dd HH:mm:ss", TimeZone.getTimeZone('Asia/Taipei'))
+  always {
+    script {
+      def buildResult = currentBuild.currentResult
+      def statusEmoji = buildResult == 'SUCCESS' ? '✅' : (buildResult == 'FAILURE' ? '❌' : '⚠️')
+      def timestamp = new Date().format("yyyy-MM-dd HH:mm:ss", TimeZone.getTimeZone('Asia/Taipei'))
 
-          def message = """
+      def message = """
+      {
+        \"cards\": [
           {
-            \"cards\": [
+            \"header\": {
+              \"title\": \"${statusEmoji} Jenkins Pipeline 執行結果\",
+              \"subtitle\": \"專案：${env.JOB_NAME} (#${env.BUILD_NUMBER})\",
+              \"imageUrl\": \"https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png\",
+              \"imageStyle\": \"AVATAR\"
+            },
+            \"sections\": [
               {
-                \"header\": {
-                  \"title\": \"${statusEmoji} Jenkins Pipeline 執行結果\",
-                  \"subtitle\": \"專案：${env.JOB_NAME} (#${env.BUILD_NUMBER})\",
-                  \"imageUrl\": \"https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png\",
-                  \"imageStyle\": \"AVATAR\"
-                },
-                \"sections\": [
+                \"widgets\": [
                   {
-                    \"widgets\": [
-                      {
-                        \"keyValue\": {
-                          \"topLabel\": \"狀態\",
-                          \"content\": \"${buildResult}\"
-                        }
-                      },
-                      {
-                        \"keyValue\": {
-                          \"topLabel\": \"完成時間\",
-                          \"content\": \"${timestamp}\"
-                        }
-                      }
-                    ]
+                    \"keyValue\": {
+                      \"topLabel\": \"狀態\",
+                      \"content\": \"${buildResult}\"
+                    }
+                  },
+                  {
+                    \"keyValue\": {
+                      \"topLabel\": \"完成時間\",
+                      \"content\": \"${timestamp}\"
+                    }
                   }
                 ]
               }
             ]
           }
-          """
+        ]
+      }
+      """
 
-          writeFile file: 'payload.json', text: message
+      writeFile file: 'payload.json', text: message
 
-          withEnv(["WEBHOOK=${WEBHOOK_URL}"]) {
-            sh 'curl -k -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"'
-          }
-        }
+      withEnv(["WEBHOOK=${WEBHOOK_URL}"]) {
+        sh 'curl -k -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"'
       }
     }
   }
+}
+
 }
