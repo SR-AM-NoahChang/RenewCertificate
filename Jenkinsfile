@@ -10,6 +10,7 @@ pipeline {
     WEBHOOK_URL = credentials('GOOGLE_CHAT_WEBHOOK')
     BASE_URL = "http://maid-cloud.vir999.com"
     YOUR_TOKEN_ENV_VAR = credentials('0f2edbf7-d6f8-4cf7-a248-d38c89cd99fc')
+    ADM_KEY = credentials('ADM_KEY')
   }
 
   stages {
@@ -56,6 +57,98 @@ pipeline {
       }
     }
 
+    stage('Export Environment with workflowId') {
+      steps {
+        sh """
+          newman run "${COLLECTION_DIR}/01申請廳主買域名.postman_collection.json" \\
+            --environment "${ENV_FILE}" \\
+            --insecure \\
+            --export-environment "/tmp/exported_env.json" \\
+            --reporters cli,json \\
+            --reporter-json-export "${REPORT_DIR}/01申請廳主買域名_report.json"
+        """
+      }
+    }
+
+    stage('Load workflowId') {
+      steps {
+        script {
+          def exportedEnv = readJSON file: "/tmp/exported_env.json"
+          def pwfId = exportedEnv.values.find { it.key == 'PD_WORKFLOW_ID' }?.value
+
+          if (!pwfId) {
+            error "❌ 無法從 exported_env.json 找到 PD_WORKFLOW_ID"
+          }
+
+          env.PD_WORKFLOW_ID = pwfId
+          echo "🆔 擷取到 PD_WORKFLOW_ID: ${env.PD_WORKFLOW_ID}"
+        }
+      }
+    }
+
+    stage('Poll Workflow Job Status') {
+      steps {
+        script {
+          def maxRetries = 10
+          def delaySeconds = 300
+          def retryCount = 0
+          def success = false
+
+          while (retryCount < maxRetries) {
+            echo "🔄 第 ${retryCount + 1} 次輪詢 workflow 狀態 (ID=${env.PD_WORKFLOW_ID})..."
+
+            def response = sh(
+              script: """
+                curl -s -X GET "${BASE_URL}/workflow_api/adm/workflows/${env.PD_WORKFLOW_ID}/jobs" \\
+                  -H "Accept: application/json" \\
+                  -H "Content-Type: application/json" \\
+                  -H "X-API-Key: ${ADM_KEY}"
+              """,
+              returnStdout: true
+            ).trim()
+
+            echo "🔎 回傳：${response}"
+
+            def jobs
+            try {
+              def json = readJSON text: response
+              jobs = json // 如果回傳本身就是 array
+              if (!(jobs instanceof List)) {
+                error "❌ 回傳格式錯誤，預期為 job 陣列"
+              }
+            } catch (err) {
+              error "❌ 解析 JSON 回傳失敗：${err.message}"
+            }
+
+            def failedJobs = jobs.findAll { it.status == 'failure' }
+            def pendingJobs = jobs.findAll { it.status != 'success' && it.status != 'failure' }
+
+            if (failedJobs.size() > 0) {
+              echo "❌ 發現失敗的 Job："
+              failedJobs.each { job -> echo "🔴 ${job.name} -> ${job.status}" }
+              error "輪詢失敗：存在 failure 狀態的 job"
+            }
+
+            if (pendingJobs.size() > 0) {
+              echo "⏳ 尚有未完成 Job："
+              pendingJobs.each { job -> echo "🟡 ${job.name} -> ${job.status}" }
+            } else {
+              echo "✅ 所有 job 成功完成！"
+              success = true
+              break
+            }
+
+            retryCount++
+            sleep time: delaySeconds, unit: 'SECONDS'
+          }
+
+          if (!success) {
+            error "⏰ 達到最大輪詢次數仍未完成"
+          }
+        }
+      }
+    }
+
     stage('Run All Postman Collections') {
       steps {
         script {
@@ -64,7 +157,7 @@ pipeline {
           }
 
           def collections = [
-            "01申請廳主買域名",
+            // "01申請廳主買域名", // 已提前執行過，避免重複
             "02申請刪除域名",
             "03申請憑證",
             "04申請展延憑證",
@@ -76,13 +169,13 @@ pipeline {
             if (fileExists(path)) {
               sh """
                 echo ▶️ 執行 Postman 測試：${name}
-                newman run "${path}" \
-                  --environment "${ENV_FILE}" \
-                  --insecure \
-                  --reporters cli,json,html,junit,allure \
-                  --reporter-json-export "${REPORT_DIR}/${name}_report.json" \
-                  --reporter-html-export "${HTML_REPORT_DIR}/${name}_report.html" \
-                  --reporter-junit-export "${REPORT_DIR}/${name}_report.xml" \
+                newman run "${path}" \\
+                  --environment "${ENV_FILE}" \\
+                  --insecure \\
+                  --reporters cli,json,html,junit,allure \\
+                  --reporter-json-export "${REPORT_DIR}/${name}_report.json" \\
+                  --reporter-html-export "${HTML_REPORT_DIR}/${name}_report.html" \\
+                  --reporter-junit-export "${REPORT_DIR}/${name}_report.xml" \\
                   --reporter-allure-export "allure-results" || true
               """
             } else {
@@ -92,89 +185,6 @@ pipeline {
         }
       }
     }
-
-    stage('Merge JSON Results') {
-      steps {
-        sh "jq -s . ${REPORT_DIR}/*_report.json > ${REPORT_DIR}/suites.json || true"
-      }
-    }
-
-    stage('Poll Workflow Job Status') {
-  steps {
-    script {
-      def workflowId = sh(script: """
-        jq -r '
-          .run.executions[]
-          | select(.item.name == "申請廳主買域名")
-          | .assertions[]
-          | select(.assertion | startswith("workflow_id:"))
-          | .assertion
-        ' ${REPORT_DIR}/01申請廳主買域名_report.json | sed 's/workflow_id: //' | head -n1
-      """, returnStdout: true).trim()
-
-      if (!workflowId || workflowId == "null") {
-        error("❌ 無法從報告中取得 workflow_id")
-      }
-
-      def pollMax = 10
-      def pollInterval = 300  // 5分鐘 = 300秒
-      def success = false
-
-      for (int attempt = 1; attempt <= pollMax; attempt++) {
-        echo "⏳ 第 ${attempt} 次輪詢，時間：${new Date().format("yyyy-MM-dd HH:mm:ss")}"
-
-        def json = sh(
-          script: """curl -s -k -X GET "${BASE_URL}/workflow_api/adm/workflows/${workflowId}/jobs" \\
-            -H "Content-Type: application/json" \\
-            -H "Authorization: Bearer ${YOUR_TOKEN_ENV_VAR}" """,
-          returnStdout: true
-        ).trim()
-
-        echo "🔍 API 回傳：${json}"
-
-        def rawResponse = readJSON text: json
-
-        def jobs = rawResponse.jobs ?: rawResponse
-        if (!(jobs instanceof List)) {
-          echo "⚠️ API 回應格式異常，無法取得 jobs 陣列"
-          error("❌ 回傳格式非預期，jobs 不是陣列，API 回傳訊息: ${json}")
-        }
-
-        def failedJobs = jobs.findAll { it.status == "failure" }
-        def incompleteJobs = jobs.findAll { it.status != "success" }
-
-        echo "📊 Jobs 狀態摘要:"
-        jobs.each { job -> echo " - ${job.name} : ${job.status}" }
-
-        if (failedJobs) {
-          failedJobs.each { echo "🔴 ${it.name} - ${it.status} - ${it.message ?: '無訊息'}" }
-          error("❌ Job 中有失敗項目，停止輪詢")
-        }
-
-        if (incompleteJobs) {
-          echo "⏸️ 尚有 ${incompleteJobs.size()} 個 Job 未完成"
-          if (attempt < pollMax) {
-            echo "🛏️ Sleep 開始時間：${new Date().format("yyyy-MM-dd HH:mm:ss")}"
-            sleep time: pollInterval, unit: 'SECONDS'
-            echo "😴 Sleep 結束時間：${new Date().format("yyyy-MM-dd HH:mm:ss")}"
-          } else {
-            error("❌ 輪詢次數用盡，Job 未完成")
-          }
-        } else {
-          echo "✅ 所有 Job 已成功完成"
-          success = true
-          break
-        }
-      }
-
-      if (!success) {
-        error("❌ 輪詢結束但未成功完成")
-      }
-    }
-  }
-}
-
-
 
     stage('Publish HTML Reports') {
       steps {
