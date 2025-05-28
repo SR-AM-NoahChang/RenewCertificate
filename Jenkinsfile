@@ -75,56 +75,48 @@ pipeline {
     stage('Poll Workflow Job Status') {
       steps {
         script {
-          def exported = readJSON file: '/tmp/exported_env.json'
-          def workflowId = exported.values.find { it.key == 'PD_WORKFLOW_ID' }?.value
-          if (!workflowId) {
-            error("❌ 無法從 exported_env.json 中取得 PD_WORKFLOW_ID")
-          }
-
-          def maxRetries = 10
-          def delaySeconds = 300
+          def maxRetries = 30
           def retryCount = 0
           def success = false
 
-          while (retryCount < maxRetries) {
+          while (retryCount < maxRetries && !success) {
             echo "🔄 第 ${retryCount + 1} 次輪詢 workflow 狀態..."
 
-            def response = sh(
-              script: """
-                curl -s -X GET "${BASE_URL}/workflow_api/adm/workflows/${workflowId}/jobs" \
-                  -H "X-API-Key: ${ADM_KEY}" \
-                  -H "Accept: application/json" \
-                  -H "Content-Type: application/json"
-              """,
-              returnStdout: true
-            ).trim()
+            def response = sh(script: """
+              curl -s -X GET http://maid-cloud.vir999.com/workflow_api/adm/workflows/${workflow_id}/jobs \\
+                -H "X-API-Key: ${ADM_KEY}" \\
+                -H "Accept: application/json" \\
+                -H "Content-Type: application/json"
+            """, returnStdout: true).trim()
 
             echo "🔎 取得狀態結果：${response}"
+
+            def json = readJSON text: response
 
             def failedJobs = json.findAll { it.status == 'failure' }
             def blockedJobs = json.findAll { it.status == 'blocked' }
             def pendingJobs = json.findAll { !(it.status in ['success', 'failure', 'blocked']) }
 
-            if (failedJobs.size() > 0) {
+            if (failedJobs) {
               error("❌ Job failure detected: ${failedJobs.collect { it.name }}")
             }
 
-            if (blockedJobs.size() > 0) {
+            if (blockedJobs) {
               error("⛔ Job blocked detected: ${blockedJobs.collect { it.name }}")
             }
 
-            if (pendingJobs.size() == 0) {
+            if (!pendingJobs) {
               echo "✅ 所有 job 已完成，提前結束輪詢"
               success = true
               break
             }
 
+            sleep(time: 10, unit: 'SECONDS')
             retryCount++
-            sleep time: delaySeconds, unit: 'SECONDS'
           }
 
           if (!success) {
-            error("⏰ 超過最大重試次數，workflow 未完成")
+            error("⏰ 超過最大輪詢次數，仍有 job 未完成")
           }
         }
       }
