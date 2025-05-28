@@ -26,6 +26,7 @@
 							"            pm.expect(statusCode, \"預期狀態碼為 201\").to.eql(201);",
 							"        }",
 							"    });",
+							"    ",
 							"} catch (error) {",
 							"    console.error(\"❌申請刪除域名過程中發生錯誤：\" + error.message);",
 							"    // 記錄錯誤但不中斷流程",
@@ -34,18 +35,10 @@
 							"    });",
 							"}",
 							"",
-							"setTimeout(function() {",
-							"    console.log(\"延遲 4 秒後執行下一個 API...\");",
-							"}, 4000); "
-						],
-						"type": "text/javascript",
-						"packages": {}
-					}
-				},
-				{
-					"listen": "prerequest",
-					"script": {
-						"exec": [
+							"",
+							"var responseJson = pm.response.json(); ",
+							"var workflowId = responseJson.workflow_id;  ",
+							"pm.collectionVariables.set(\"DD_WORKFLOW_ID\", workflowId);",
 							""
 						],
 						"type": "text/javascript",
@@ -94,6 +87,171 @@
 						"pf",
 						"application",
 						"delete_domain"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "取得刪除域名申請詳細資料",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);  // 檢查 HTTP 狀態碼是否為 200",
+							"});",
+							"",
+							"let responseJson = pm.response.json();",
+							"",
+							"// 申請單號檢查",
+							"pm.test(\"Validate workflow_id is correct\", function() {",
+							"    var responseJson = pm.response.json();  ",
+							"    var expectedWorkflowId = pm.variables.get(\"DD_WORKFLOW_ID\"); ",
+							"    pm.expect(String(responseJson.workflow_id)).to.eql(String(expectedWorkflowId));",
+							"});",
+							"",
+							"//域名欄位檢查",
+							"pm.test(\"Validate domain\", function() {",
+							"    var responseJson = pm.response.json();  ",
+							"    pm.expect(responseJson.domain).to.eql(\"srtest111.com\");",
+							"});",
+							"",
+							"// 驗證 workflow name 是否為“申請刪除域名”",
+							"pm.test(\"Validate workflow_name is 申請刪除域名\", function() {",
+							"    pm.expect(responseJson.workflow_name).to.eql(\"DeleteDomain\");",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "X-API-Key",
+						"value": "{{ADM_KEY}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{BASE_URL}}/workflow_api/adm/workflows/{{DD_WORKFLOW_ID}}",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"workflow_api",
+						"adm",
+						"workflows",
+						"{{DD_WORKFLOW_ID}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "取得刪除域名項目資料 (Job狀態檢查)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);  // 檢查 HTTP 狀態碼是否為 200",
+							"});",
+							"",
+							"var expectedNames = [",
+							"    \"DeleteDomainRecord\"",
+							"    //\"SyncT2\"",
+							"];",
+							"",
+							"pm.test(\"All expected names are present in the response\", function () {",
+							"    var responseJson = pm.response.json();",
+							"",
+							"    // 提取響應中的所有 name 值",
+							"    var actualNames = responseJson.map(function(item) {",
+							"        return item.name;  // 提取每個 job 的 name",
+							"    });",
+							"",
+							"    expectedNames.forEach(function(expectedName) {",
+							"        pm.expect(actualNames).to.include(expectedName);  // 驗證實際的 name 包含預期的 name",
+							"    });",
+							"});",
+							"",
+							"// 存取 job 變數",
+							"var responseJson = pm.response.json();",
+							"",
+							"",
+							"responseJson.forEach(function(item) {",
+							"    if (item.name === \"DeleteDomainRecord\") {",
+							"        pm.collectionVariables.set(\"DeleteDomainRecord_job_id\", item.job_id);  ",
+							"    }",
+							"    /*",
+							"    if (item.name === \"SyncT2\") {",
+							"        pm.collectionVariables.set(\"SyncT2_job_id\", item.job_id);  ",
+							"    }",
+							"    */",
+							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); ",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "X-API-Key",
+						"value": "{{ADM_KEY}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{BASE_URL}}/workflow_api/adm/workflows/{{DD_WORKFLOW_ID}}/jobs",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"workflow_api",
+						"adm",
+						"workflows",
+						"{{DD_WORKFLOW_ID}}",
+						"jobs"
 					]
 				}
 			},
