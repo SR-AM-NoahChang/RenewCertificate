@@ -58,24 +58,28 @@ pipeline {
 
     stage('01申請廳主買域名') {
       steps {
-        sh '''
-          newman run "${COLLECTION_DIR}/01申請廳主買域名.postman_collection.json" \
-            --environment "${ENV_FILE}" \
-            --export-environment "/tmp/exported_env.json" \
-            --insecure \
-            --reporters cli,json,html,junit,allure \
-            --reporter-json-export "${REPORT_DIR}/01_report.json" \
-            --reporter-html-export "${HTML_REPORT_DIR}/01_report.html" \
-            --reporter-junit-export "${REPORT_DIR}/01_report.xml" \
-            --reporter-allure-export "allure-results"
-        '''
+        script {
+          catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+            sh '''
+              newman run "${COLLECTION_DIR}/01申請廳主買域名.postman_collection.json" \
+                --environment "${ENV_FILE}" \
+                --export-environment "/tmp/exported_env.json" \
+                --insecure \
+                --reporters cli,json,html,junit,allure \
+                --reporter-json-export "${REPORT_DIR}/01_report.json" \
+                --reporter-html-export "${HTML_REPORT_DIR}/01_report.html" \
+                --reporter-junit-export "${REPORT_DIR}/01_report.xml" \
+                --reporter-allure-export "allure-results"
+            '''
+          }
+        }
       }
     }
 
     stage('取得廳主買域名項目資料 (Job狀態檢查)') {
       steps {
         script {
-          catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+          catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
             def exported = readJSON file: '/tmp/exported_env.json'
             def workflowId = exported.values.find { it.key == 'PD_WORKFLOW_ID' }?.value
     
@@ -194,16 +198,18 @@ pipeline {
           def collectionPath = "${COLLECTION_DIR}/15清除測試域名.postman_collection.json"
           if (fileExists(collectionPath)) {
             echo "🧹 開始執行測試資料清除 collection：15清除測試域名"
-            sh """
-              newman run "${collectionPath}" \
-                --environment "${ENV_FILE}" \
-                --insecure \
-                --reporters cli,json,html,junit,allure \
-                --reporter-json-export "${REPORT_DIR}/15_cleanup_report.json" \
-                --reporter-html-export "${HTML_REPORT_DIR}/15_cleanup_report.html" \
-                --reporter-junit-export "${REPORT_DIR}/15_cleanup_report.xml" \
-                --reporter-allure-export "allure-results" || true
-            """
+            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+              sh """
+                newman run "${collectionPath}" \
+                  --environment "${ENV_FILE}" \
+                  --insecure \
+                  --reporters cli,json,html,junit,allure \
+                  --reporter-json-export "${REPORT_DIR}/15_cleanup_report.json" \
+                  --reporter-html-export "${HTML_REPORT_DIR}/15_cleanup_report.html" \
+                  --reporter-junit-export "${REPORT_DIR}/15_cleanup_report.xml" \
+                  --reporter-allure-export "allure-results"
+              """
+            }
           } else {
             echo "⚠️ 找不到 collection 檔案：${collectionPath}，跳過清除流程"
           }
