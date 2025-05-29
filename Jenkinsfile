@@ -27,7 +27,7 @@ pipeline {
         dir('/work/collections') {
           sh '''
             if [ ! -d .git ]; then
-              git clone https://github.com/SR-AM-NoahChang/Maid-postman-auto-tests.git .
+              git clone https://github.com/SR-AM-NoahChang/RenewCertificate.git .
             fi
             git fetch origin main
             git reset --hard origin/main
@@ -333,7 +333,7 @@ pipeline {
         script {
           catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
             sh '''
-              newman run "${COLLECTION_DIR}/申請展延憑證.postman_collection.json" \
+                newman run "${COLLECTION_DIR}/申請展延憑證.postman_collection.json" \
                 --environment "${ENV_FILE}" \
                 --export-environment "/tmp/exported_env.json" \
                 --insecure \
