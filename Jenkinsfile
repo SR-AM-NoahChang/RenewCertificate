@@ -1,6 +1,10 @@
 pipeline {
   agent any
 
+  options {
+      skipDefaultCheckout(true) // 不自動 checkout，避免覆蓋或殘留
+    }
+
   environment {
     COLLECTION_DIR = "/work/collections/collections"
     REPORT_DIR = "/work/reports"
@@ -23,17 +27,35 @@ pipeline {
     steps {
       dir('/work') {
         sh '''
-          rm -rf collections
-          git clone https://github.com/SR-AM-NoahChang/RenewCertificate.git collections
-          cd collections
-          git fetch origin main
-          git reset --hard origin/main
+          echo "📁 準備 collections 資料夾..."
+
+          # 如果資料夾存在但不是 Git repo，就刪掉它
+          if [ -d collections ] && [ ! -d collections/.git ]; then
+            echo "🧹 移除非 Git 的 collections 資料夾"
+            rm -rf collections
+          fi
+
+          # 如果是 Git repo，就更新；否則 clone
+          if [ -d collections/.git ]; then
+            echo "🔁 更新現有 collections repository"
+            cd collections
+            git remote set-url origin https://github.com/SR-AM-NoahChang/RenewCertificate.git
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fdx
+          else
+            echo "🌱 初次 clone collections"
+            git clone https://github.com/SR-AM-NoahChang/RenewCertificate.git collections
+            cd collections
+          fi
+
           echo "✅ 當前 Git commit：$(git rev-parse HEAD)"
           echo "📝 Commit 訊息：$(git log -1 --oneline)"
         '''
       }
     }
   }
+
 
     stage('Prepare Folders') {
       steps {
