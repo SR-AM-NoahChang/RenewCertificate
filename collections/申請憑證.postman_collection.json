@@ -1,0 +1,570 @@
+{
+	"info": {
+		"_postman_id": "3c679271-560c-4f4d-acb6-9a5994ddab13",
+		"name": "申請憑證",
+		"description": "#### **申請廳主買域名 > 申請購買與部署憑證 > 驗證 workflow 內容是否正確 > 申請刪除域名(確保 Domain 乾淨)**\n\n- 驗證所有調用的 api status code 為正確狀態\n    \n- 驗證 workflow 申請單號為 {{PC_WORKFLOW_ID}}\n    \n- 驗證域名為 sramtest01.com\n    \n- 驗證 workflow 申請類型為 PurchaseCertificate\n    \n- 驗證申請憑證 workflow 建立後應自動產生的所有 Job  \n    (PurchaseAndDeployCert, CheckPurchaseDeployCertificateStatus, RecheckCert)\n    \n- 驗證所有 Job 最終狀態是否為 success",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "42767672"
+	},
+	"item": [
+		{
+			"name": "(PDNS) IP 解析",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 (IP 解析)\", function () {",
+							"    pm.response.to.have.status(200);  // 檢查 HTTP 狀態碼是否為 200",
+							"});",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 3 秒後執行下一個 API...\");",
+							"}, 3000); "
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "*/*"
+					},
+					{
+						"key": "Accept-Language",
+						"value": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7"
+					},
+					{
+						"key": "Connection",
+						"value": "keep-alive"
+					},
+					{
+						"key": "Referer",
+						"value": "https://pdns.vir999.com/d_domains.php?site_group=dctest&login_code=dct"
+					},
+					{
+						"key": "Sec-Fetch-Dest",
+						"value": "empty"
+					},
+					{
+						"key": "Sec-Fetch-Mode",
+						"value": "cors"
+					},
+					{
+						"key": "Sec-Fetch-Site",
+						"value": "same-origin"
+					},
+					{
+						"key": "User-Agent",
+						"value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+					},
+					{
+						"key": "X-Requested-With",
+						"value": "XMLHttpRequest"
+					},
+					{
+						"key": "sec-ch-ua",
+						"value": "\"Google Chrome\";v=\"135\", \"Not-A.Brand\";v=\"8\", \"Chromium\";v=\"135\""
+					},
+					{
+						"key": "sec-ch-ua-mobile",
+						"value": "?0"
+					},
+					{
+						"key": "sec-ch-ua-platform",
+						"value": "\"macOS\""
+					}
+				],
+				"url": {
+					"raw": "https://pdns.vir999.com/update_dns_information.php?type=1&domain_name={{DOMAIN}}",
+					"protocol": "https",
+					"host": [
+						"pdns",
+						"vir999",
+						"com"
+					],
+					"path": [
+						"update_dns_information.php"
+					],
+					"query": [
+						{
+							"key": "type",
+							"value": "1"
+						},
+						{
+							"key": "domain_name",
+							"value": "{{DOMAIN}}"
+						}
+					]
+				},
+				"description": "Generated from cURL: curl 'https://pdns.vir999.com/update_dns_information.php?type=1&domain_name=sramtest01.com' \\\n  -H 'Accept: */*' \\\n  -H 'Accept-Language: zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7' \\\n  -H 'Connection: keep-alive' \\\n  -b 'G_ENABLED_IDPS=google; PHPSESSID=f4403c6f199c8d0548773115342911f2; G_AUTHUSER_H=0' \\\n  -H 'Referer: https://pdns.vir999.com/d_domains.php?site_group=dctest&login_code=dct' \\\n  -H 'Sec-Fetch-Dest: empty' \\\n  -H 'Sec-Fetch-Mode: cors' \\\n  -H 'Sec-Fetch-Site: same-origin' \\\n  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36' \\\n  -H 'X-Requested-With: XMLHttpRequest' \\\n  -H 'sec-ch-ua: \"Google Chrome\";v=\"135\", \"Not-A.Brand\";v=\"8\", \"Chromium\";v=\"135\"' \\\n  -H 'sec-ch-ua-mobile: ?0' \\\n  -H 'sec-ch-ua-platform: \"macOS\"'"
+			},
+			"response": []
+		},
+		{
+			"name": "(PDNS) 域名商網址更新",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 (更新DNS資訊)\", function () {",
+							"    pm.response.to.have.status(200);  // 檢查 HTTP 狀態碼是否為 200",
+							"});",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 6 秒後執行下一個 API...\");",
+							"}, 6000); "
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "*/*"
+					},
+					{
+						"key": "Accept-Language",
+						"value": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7"
+					},
+					{
+						"key": "Connection",
+						"value": "keep-alive"
+					},
+					{
+						"key": "Referer",
+						"value": "https://pdns.vir999.com/d_domains.php?site_group=dctest&login_code=dct"
+					},
+					{
+						"key": "Sec-Fetch-Dest",
+						"value": "empty"
+					},
+					{
+						"key": "Sec-Fetch-Mode",
+						"value": "cors"
+					},
+					{
+						"key": "Sec-Fetch-Site",
+						"value": "same-origin"
+					},
+					{
+						"key": "User-Agent",
+						"value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+					},
+					{
+						"key": "X-Requested-With",
+						"value": "XMLHttpRequest"
+					},
+					{
+						"key": "sec-ch-ua",
+						"value": "\"Google Chrome\";v=\"135\", \"Not-A.Brand\";v=\"8\", \"Chromium\";v=\"135\""
+					},
+					{
+						"key": "sec-ch-ua-mobile",
+						"value": "?0"
+					},
+					{
+						"key": "sec-ch-ua-platform",
+						"value": "\"macOS\""
+					},
+					{
+						"key": "Cookie",
+						"value": "G_ENABLED_IDPS=google; PHPSESSID=f4403c6f199c8d0548773115342911f2; G_AUTHUSER_H=0",
+						"disabled": true
+					}
+				],
+				"url": {
+					"raw": "https://pdns.vir999.com/update_dns_information.php?type=2&domain_name={{DOMAIN}}",
+					"protocol": "https",
+					"host": [
+						"pdns",
+						"vir999",
+						"com"
+					],
+					"path": [
+						"update_dns_information.php"
+					],
+					"query": [
+						{
+							"key": "type",
+							"value": "2"
+						},
+						{
+							"key": "domain_name",
+							"value": "{{DOMAIN}}"
+						}
+					]
+				},
+				"description": "Generated from cURL: curl 'https://pdns.vir999.com/update_dns_information.php?type=1&domain_name=sramtest01.com' \\\n  -H 'Accept: */*' \\\n  -H 'Accept-Language: zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7' \\\n  -H 'Connection: keep-alive' \\\n  -b 'G_ENABLED_IDPS=google; PHPSESSID=f4403c6f199c8d0548773115342911f2; G_AUTHUSER_H=0' \\\n  -H 'Referer: https://pdns.vir999.com/d_domains.php?site_group=dctest&login_code=dct' \\\n  -H 'Sec-Fetch-Dest: empty' \\\n  -H 'Sec-Fetch-Mode: cors' \\\n  -H 'Sec-Fetch-Site: same-origin' \\\n  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36' \\\n  -H 'X-Requested-With: XMLHttpRequest' \\\n  -H 'sec-ch-ua: \"Google Chrome\";v=\"135\", \"Not-A.Brand\";v=\"8\", \"Chromium\";v=\"135\"' \\\n  -H 'sec-ch-ua-mobile: ?0' \\\n  -H 'sec-ch-ua-platform: \"macOS\"'"
+			},
+			"response": []
+		},
+		{
+			"name": "申請購買與部屬憑證",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () {",
+							"    pm.response.to.have.status(201);  // 檢查 HTTP 狀態碼是否為 201",
+							"});",
+							"",
+							"var responseJson = pm.response.json(); ",
+							"var workflowId = responseJson.workflow_id;  ",
+							"//pm.collectionVariables.set(\"PD_WORKFLOW_ID\", workflowId);",
+							"pm.environment.set(\"PC_WORKFLOW_ID\", workflowId);",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 1 秒後執行下一個 API...\");",
+							"}, 1000); ",
+							"",
+							"if (workflowId) {",
+							"    // 新增這段，讓 workflow_id 出現在報告的 assertion 中",
+							"    pm.test(\"pc_workflow_id: \" + workflowId, function () {",
+							"        pm.expect(true).to.be.true;",
+							"    });",
+							"} else {",
+							"    pm.test(\"❌ pc_workflow_id 不存在\", function () {",
+							"        pm.expect.fail(\"回應中無 pc_workflow_id\");",
+							"    });",
+							"}",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "x-api-key",
+						"value": "{{PF_KEY}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"domain\": \"{{DOMAIN}}\",\n  \"site_group\": \"dctest\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{BASE_URL}}/workflow_api/pf/application/purchase_certificate",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"workflow_api",
+						"pf",
+						"application",
+						"purchase_certificate"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "取得購買憑證申請詳細資料",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);  // 檢查 HTTP 狀態碼是否為 200",
+							"});",
+							"",
+							"let responseJson = pm.response.json();",
+							"",
+							"// 申請單號檢查",
+							"pm.test(\"申請單號檢查\", function() {",
+							"    var responseJson = pm.response.json();  ",
+							"    var expectedWorkflowId = pm.variables.get(\"PC_WORKFLOW_ID\"); ",
+							"    pm.expect(String(responseJson.workflow_id)).to.eql(String(expectedWorkflowId));",
+							"});",
+							"",
+							"// 域名欄位檢查",
+							"pm.test(\"域名欄位檢查\", function () {",
+							"    var responseJson = pm.response.json();",
+							"    var expectedDomain = pm.environment.get(\"DOMAIN\");",
+							"    ",
+							"    pm.expect(responseJson.domain).to.eql(expectedDomain);",
+							"});",
+							"",
+							"// 驗證 workflow name 是否為“申請購買與部署憑證”",
+							"pm.test(\"Validate workflow_name is 申請購買與部署憑證\", function() {",
+							"    pm.expect(responseJson.workflow_name).to.eql(\"PurchaseCertificate\");",
+							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 5 秒後執行下一個 API...\");",
+							"}, 5000); "
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "X-API-Key",
+						"value": "{{ADM_KEY}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{BASE_URL}}/workflow_api/adm/workflows/{{PC_WORKFLOW_ID}}",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"workflow_api",
+						"adm",
+						"workflows",
+						"{{PC_WORKFLOW_ID}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "取得購買憑證項目資料 (Job狀態檢查)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", () => {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"const expectedNames = [",
+							"    \"PurchaseAndDeployCert\",",
+							"    \"CheckPurchaseDeployCertificateStatus\",",
+							"    \"RecheckCert\"",
+							"];",
+							"",
+							"let responseJson;",
+							"",
+							"try {",
+							"    responseJson = pm.response.json();",
+							"    if (!Array.isArray(responseJson)) {",
+							"        console.warn(\"⚠️ responseJson 不是 array，無法繼續處理 job\");",
+							"        return;",
+							"    }",
+							"} catch (e) {",
+							"    console.error(\"❌ 回傳不是 JSON，解析失敗\");",
+							"    return;",
+							"}",
+							"",
+							"// 儲存 job_id 到 Collection Variables",
+							"expectedNames.forEach(name => {",
+							"    const job = responseJson.find(item => item.name === name);  ",
+							"    if (job) {",
+							"        pm.collectionVariables.set(`${name}_job_id`, job.job_id);",
+							"    }",
+							"});",
+							"",
+							"// 驗證所有 job 都有回傳",
+							"pm.test(\"All expected job names are present\", () => {",
+							"    const actualNames = responseJson.map(item => item.name);",
+							"    expectedNames.forEach(expectedName => {",
+							"        pm.expect(actualNames, `${expectedName} 不在 job 回應中`).to.include(expectedName);",
+							"    });",
+							"});",
+							"",
+							"// 驗證不包含 failure 或 blocked 即為驗證通過",
+							"pm.test(\"所有 job 不包含 failure 或 blocked\", function () {",
+							"    const failedOrBlockedJobs = responseJson.filter(job => ",
+							"        job.status === \"failure\" || job.status === \"blocked\"",
+							"    );",
+							"",
+							"    if (failedOrBlockedJobs.length > 0) {",
+							"        console.log(\"❌ 以下 job status 為 failure 或 blocked：\");",
+							"        failedOrBlockedJobs.forEach(job => {",
+							"            console.log(`🔴 Job ID ${job.job_id} [${job.name}] status: ${job.status}, message: ${job.message || \"無訊息\"}`);",
+							"        });",
+							"    }",
+							"",
+							"    pm.expect(failedOrBlockedJobs.length, \"至少有一個 job 為 failure 或 blocked\").to.eql(0);",
+							"});",
+							"",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "X-API-Key",
+						"value": "{{ADM_KEY}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{BASE_URL}}/workflow_api/adm/workflows/{{PC_WORKFLOW_ID}}/jobs",
+					"host": [
+						"{{BASE_URL}}"
+					],
+					"path": [
+						"workflow_api",
+						"adm",
+						"workflows",
+						"{{PC_WORKFLOW_ID}}",
+						"jobs"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "PurchaseAndDeployCert_job_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "CheckPurchaseDeployCertificateStatus",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "RecheckCert",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "PC_WORKFLOW_ID",
+			"value": ""
+		},
+		{
+			"key": "CheckPurchaseDeployCertificateStatus_job_id",
+			"value": ""
+		},
+		{
+			"key": "RecheckCert_job_id",
+			"value": ""
+		},
+		{
+			"key": "DD_WORKFLOW_ID",
+			"value": ""
+		},
+		{
+			"key": "RANDOMNUM",
+			"value": ""
+		},
+		{
+			"key": "PD_WORKFLOW_ID",
+			"value": ""
+		},
+		{
+			"key": "CheckDomainBlocked_job_id",
+			"value": ""
+		},
+		{
+			"key": "VerifyTLD_job_id",
+			"value": ""
+		},
+		{
+			"key": "UpdateNameServer_job_id",
+			"value": ""
+		},
+		{
+			"key": "UpdateDomainRecord_job_id",
+			"value": ""
+		},
+		{
+			"key": "MergeErrorRecord_job_id",
+			"value": ""
+		},
+		{
+			"key": "RecheckDomainResolution_job_id",
+			"value": ""
+		},
+		{
+			"key": "RemoveTag_job_id",
+			"value": ""
+		}
+	]
+}

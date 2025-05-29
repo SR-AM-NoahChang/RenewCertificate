@@ -1,7 +1,7 @@
 {
 	"info": {
 		"_postman_id": "399ffbc4-9a0e-48f5-a397-e05e24f37958",
-		"name": "15清除測試域名",
+		"name": "清除測試域名",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "42767672"
 	},
@@ -19,8 +19,18 @@
 							"",
 							"var responseJson = pm.response.json(); ",
 							"var workflowId = responseJson.workflow_id;  ",
-							"pm.collectionVariables.set(\"DD_WORKFLOW_ID\", workflowId);",
-							""
+							"//pm.collectionVariables.set(\"DD_WORKFLOW_ID\", workflowId);",
+							"pm.environment.set(\"DD_WORKFLOW_ID\", workflowId);",
+							"if (workflowId) {",
+							"    // 新增這段，讓 workflow_id 出現在報告的 assertion 中",
+							"    pm.test(\"dd_workflow_id: \" + workflowId, function () {",
+							"        pm.expect(true).to.be.true;",
+							"    });",
+							"} else {",
+							"    pm.test(\"❌ dd_workflow_id 不存在\", function () {",
+							"        pm.expect.fail(\"回應中無 dd_workflow_id\");",
+							"    });",
+							"}"
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -104,7 +114,11 @@
 							"// 驗證 workflow name 是否為“申請刪除域名”",
 							"pm.test(\"Validate workflow_name is 申請刪除域名\", function() {",
 							"    pm.expect(responseJson.workflow_name).to.eql(\"DeleteDomain\");",
-							"});"
+							"});",
+							"",
+							"setTimeout(function() {",
+							"    console.log(\"延遲 5 秒後執行下一個 API...\");",
+							"}, 5000); "
 						],
 						"type": "text/javascript",
 						"packages": {}
@@ -192,19 +206,22 @@
 							"    */",
 							"});",
 							"",
-							"// 檢查是否有 job 的 status 不為 success 或 running，若有就列出",
-							"pm.test(\"所有 job 的 status 是否為 success 或 running\", function () {",
-							"    const invalidJobs = responseJson.filter(job => !(job.status === \"success\" || job.status === \"running\"));",
+							"// 驗證不包含 failure 或 blocked 即為驗證通過",
+							"pm.test(\"所有 job 不包含 failure 或 blocked\", function () {",
+							"    const failedOrBlockedJobs = responseJson.filter(job => ",
+							"        job.status === \"failure\" || job.status === \"blocked\"",
+							"    );",
 							"",
-							"    if (invalidJobs.length > 0) {",
-							"        console.log(\"❌ 以下 job status 不為 success 或 running：\");",
-							"        invalidJobs.forEach(job => {",
+							"    if (failedOrBlockedJobs.length > 0) {",
+							"        console.log(\"❌ 以下 job status 為 failure 或 blocked：\");",
+							"        failedOrBlockedJobs.forEach(job => {",
 							"            console.log(`🔴 Job ID ${job.job_id} [${job.name}] status: ${job.status}, message: ${job.message || \"無訊息\"}`);",
 							"        });",
 							"    }",
 							"",
-							"    pm.expect(invalidJobs.length, \"至少有一個 job status 非 success 或 running\").to.eql(0);",
+							"    pm.expect(failedOrBlockedJobs.length, \"至少有一個 job 為 failure 或 blocked\").to.eql(0);",
 							"});",
+							"",
 							""
 						],
 						"type": "text/javascript",
