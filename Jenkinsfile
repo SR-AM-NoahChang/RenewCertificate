@@ -21,14 +21,12 @@ pipeline {
 
     stage('Checkout Postman Collections') {
       steps {
-        script {
-          sh 'rm -rf /work/collections/* || true'
-        }
-        dir('/work/collections') {
+        dir('/work') {
           sh '''
-            if [ ! -d .git ]; then
-              git clone https://github.com/SR-AM-NoahChang/RenewCertificate.git .
+            if [ ! -d collections/.git ]; then
+              git clone https://github.com/SR-AM-NoahChang/RenewCertificate.git collections
             fi
+            cd collections
             git fetch origin main
             git reset --hard origin/main
             echo "✅ 當前 Git commit：$(git rev-parse HEAD)"
@@ -634,7 +632,17 @@ pipeline {
   always {
     script {
       def buildResult = currentBuild.currentResult
-      def statusEmoji = buildResult == 'SUCCESS' ? '✅' : (buildResult == 'FAILURE' ? '❌' : '⚠️')
+      def statusEmoji = buildResult == 'SUCCESS' ? '✅' :
+                        buildResult == 'FAILURE' ? '❌' :
+                        buildResult == 'UNSTABLE' ? '⚠️' :
+                        buildResult == 'ABORTED' ? '🚫' : '❔'
+
+      // 對應中文狀態
+      def statusText = buildResult == 'SUCCESS' ? '成功' :
+                       buildResult == 'FAILURE' ? '失敗' :
+                       buildResult == 'UNSTABLE' ? '不穩定' :
+                       buildResult == 'ABORTED' ? '已終止' : '未知'
+
       def timestamp = new Date().format("yyyy-MM-dd HH:mm:ss", TimeZone.getTimeZone('Asia/Taipei'))
 
       def message = """
@@ -653,7 +661,7 @@ pipeline {
                   {
                     \"keyValue\": {
                       \"topLabel\": \"狀態\",
-                      \"content\": \"${buildResult}\"
+                      \"content\": \"${statusText}\"
                     }
                   },
                   {
