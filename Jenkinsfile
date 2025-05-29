@@ -58,6 +58,26 @@ pipeline {
       }
     }
 
+    stage('申請廳主買域名') {
+      steps {
+        script {
+          catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+            sh '''
+              newman run "${COLLECTION_DIR}/申請廳主買域名.postman_collection.json" \
+                --environment "${ENV_FILE}" \
+                --export-environment "/tmp/exported_env.json" \
+                --insecure \
+                --reporters cli,json,html,junit,allure \
+                --reporter-json-export "${REPORT_DIR}/01_report.json" \
+                --reporter-html-export "${HTML_REPORT_DIR}/01_report.html" \
+                --reporter-junit-export "${REPORT_DIR}/01_report.xml" \
+                --reporter-allure-export "allure-results"
+            '''
+          }
+        }
+      }
+    }
+
     stage('取得廳主買域名項目資料 (Job狀態檢查)') {
       steps {
         script {
