@@ -19,22 +19,21 @@ pipeline {
       }
     }
 
-    stage('Checkout Postman Collections') {
-      steps {
-        dir('/work') {
-          sh '''
-            if [ ! -d collections/.git ]; then
-              git clone https://github.com/SR-AM-NoahChang/RenewCertificate.git collections
-            fi
-            cd collections
-            git fetch origin main
-            git reset --hard origin/main
-            echo "✅ 當前 Git commit：$(git rev-parse HEAD)"
-            echo "📝 Commit 訊息：$(git log -1 --oneline)"
-          '''
-        }
+  stage('Checkout Postman Collections') {
+    steps {
+      dir('/work') {
+        sh '''
+          rm -rf collections
+          git clone https://github.com/SR-AM-NoahChang/RenewCertificate.git collections
+          cd collections
+          git fetch origin main
+          git reset --hard origin/main
+          echo "✅ 當前 Git commit：$(git rev-parse HEAD)"
+          echo "📝 Commit 訊息：$(git log -1 --oneline)"
+        '''
       }
     }
+  }
 
     stage('Prepare Folders') {
       steps {
