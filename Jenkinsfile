@@ -1,79 +1,64 @@
 pipeline {
-  agent any
+    agent any
 
-  options {
-      skipDefaultCheckout(true) // 不自動 checkout，避免覆蓋或殘留
+    options {
+      skipDefaultCheckout(true)
     }
 
-  environment {
-    COLLECTION_DIR = "/work/collections/collections"
-    REPORT_DIR = "/work/reports"
-    HTML_REPORT_DIR = "/work/reports/html"
-    ALLURE_RESULTS_DIR = "allure-results"
-    ENV_FILE = "/work/collections/environments/DEV.postman_environment.json"
-    WEBHOOK_URL = credentials('GOOGLE_CHAT_WEBHOOK')
-    BASE_URL = "http://maid-cloud.vir999.com"
-    ADM_KEY = credentials('DEV_ADM_KEY')
-  }
+    environment {
+      COLLECTION_DIR = "${env.WORKSPACE}/collections"
+      REPORT_DIR = "${env.WORKSPACE}/reports"
+      HTML_REPORT_DIR = "${env.WORKSPACE}/reports/html"
+      ALLURE_RESULTS_DIR = "${env.WORKSPACE}/allure-results"
+      ENV_FILE = "${env.WORKSPACE}/environments/DEV.postman_environment.json"
+      WEBHOOK_URL = credentials('GOOGLE_CHAT_WEBHOOK')
+      BASE_URL = "http://maid-cloud.vir999.com"
+      ADM_KEY = credentials('DEV_ADM_KEY')
+    }
 
-  stages {
-    stage('Checkout Code') {
-      steps {
-        checkout scm
+    stages {
+      stage('Clean Workspace') {
+        steps {
+          echo '🧹 清理 Jenkins 工作目錄...'
+          deleteDir()
+        }
       }
-    }
 
-  stage('Checkout Postman Collections') {
-    steps {
-      dir('/work') {
-        sh '''
-          echo "📁 準備 collections 資料夾..."
-
-          # 如果資料夾存在但不是 Git repo，就刪掉它
-          if [ -d collections ] && [ ! -d collections/.git ]; then
-            echo "🧹 移除非 Git 的 collections 資料夾"
-            rm -rf collections
-          fi
-
-          # 如果是 Git repo，就更新；否則 clone
-          if [ -d collections/.git ]; then
-            echo "🔁 更新現有 collections repository"
-            cd collections
-            git remote set-url origin https://github.com/SR-AM-NoahChang/RenewCertificate.git
-            git fetch origin main
-            git reset --hard origin/main
-            git clean -fdx
-          else
-            echo "🌱 初次 clone collections"
-            git clone https://github.com/SR-AM-NoahChang/RenewCertificate.git collections
-            cd collections
-          fi
-
-          echo "✅ 當前 Git commit：$(git rev-parse HEAD)"
-          echo "📝 Commit 訊息：$(git log -1 --oneline)"
-        '''
+      stage('Checkout Code') {
+        steps {
+          echo '📥 Checkout Git repo...'
+          checkout scm
+        }
       }
-    }
-  }
 
+      stage('Show Commit Info') {
+        steps {
+          sh '''
+            echo "✅ 當前 Git commit：$(git rev-parse HEAD)"
+            echo "📝 Commit 訊息：$(git log -1 --oneline)"
+          '''
+        }
+      }
 
-    stage('Prepare Folders') {
-      steps {
-        script {
-          def timestamp = sh(script: "date +%Y%m%d_%H%M%S", returnStdout: true).trim()
-          sh """
-            mkdir -p /work/report_backup
-            if [ -d "${REPORT_DIR}" ]; then
-              mv ${REPORT_DIR} /work/report_backup/${timestamp}
-              chmod -R 755 /work/report_backup/${timestamp}
-              echo 📦 備份舊報告到 /work/report_backup/${timestamp}
-            fi
-            rm -rf ${REPORT_DIR} ${HTML_REPORT_DIR} allure-results
-            mkdir -p ${REPORT_DIR} ${HTML_REPORT_DIR} allure-results
-          """
+      stage('Prepare Folders') {
+        steps {
+          script {
+            def timestamp = sh(script: "date +%Y%m%d_%H%M%S", returnStdout: true).trim()
+            sh """
+              mkdir -p ${env.WORKSPACE}/report_backup
+              if [ -d "${REPORT_DIR}" ]; then
+                mv ${REPORT_DIR} ${env.WORKSPACE}/report_backup/${timestamp}
+                chmod -R 755 ${env.WORKSPACE}/report_backup/${timestamp}
+                echo 📦 備份舊報告到 ${env.WORKSPACE}/report_backup/${timestamp}
+              fi
+              rm -rf ${REPORT_DIR} ${HTML_REPORT_DIR} ${ALLURE_RESULTS_DIR}
+              mkdir -p ${REPORT_DIR} ${HTML_REPORT_DIR} ${ALLURE_RESULTS_DIR}
+            """
+          }
         }
       }
     }
+  }
 
     stage('申請廳主買域名') {
       steps {
