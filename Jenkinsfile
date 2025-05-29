@@ -1,81 +1,59 @@
 pipeline {
-    agent any
+  agent any
 
-    options {
-      skipDefaultCheckout(true)
-    }
-
-    environment {
-      COLLECTION_DIR = "${env.WORKSPACE}/collections"
-      REPORT_DIR = "${env.WORKSPACE}/reports"
-      HTML_REPORT_DIR = "${env.WORKSPACE}/reports/html"
-      ALLURE_RESULTS_DIR = "${env.WORKSPACE}/allure-results"
-      ENV_FILE = "${env.WORKSPACE}/environments/DEV.postman_environment.json"
-      WEBHOOK_URL = credentials('GOOGLE_CHAT_WEBHOOK')
-      BASE_URL = "http://maid-cloud.vir999.com"
-      ADM_KEY = credentials('DEV_ADM_KEY')
-    }
-
-    stages {
-      stage('Clean Workspace') {
-        steps {
-          echo '🧹 清理 Jenkins 工作目錄...'
-          deleteDir()
-        }
-      }
-
-      stage('Checkout Code') {
-        steps {
-          echo '📥 Checkout Git repo...'
-          checkout scm
-        }
-      }
-
-      stage('Show Commit Info') {
-        steps {
-          sh '''
-            echo "✅ 當前 Git commit：$(git rev-parse HEAD)"
-            echo "📝 Commit 訊息：$(git log -1 --oneline)"
-          '''
-        }
-      }
-
-      stage('Prepare Folders') {
-        steps {
-          script {
-            def timestamp = sh(script: "date +%Y%m%d_%H%M%S", returnStdout: true).trim()
-            sh """
-              mkdir -p ${env.WORKSPACE}/report_backup
-              if [ -d "${REPORT_DIR}" ]; then
-                mv ${REPORT_DIR} ${env.WORKSPACE}/report_backup/${timestamp}
-                chmod -R 755 ${env.WORKSPACE}/report_backup/${timestamp}
-                echo 📦 備份舊報告到 ${env.WORKSPACE}/report_backup/${timestamp}
-              fi
-              rm -rf ${REPORT_DIR} ${HTML_REPORT_DIR} ${ALLURE_RESULTS_DIR}
-              mkdir -p ${REPORT_DIR} ${HTML_REPORT_DIR} ${ALLURE_RESULTS_DIR}
-            """
-          }
-        }
-      }
-    }
+  options {
+    skipDefaultCheckout(true)
   }
 
-    stage('申請廳主買域名') {
+  environment {
+    COLLECTION_DIR = "${env.WORKSPACE}/collections"
+    REPORT_DIR = "${env.WORKSPACE}/reports"
+    HTML_REPORT_DIR = "${env.WORKSPACE}/reports/html"
+    ALLURE_RESULTS_DIR = "${env.WORKSPACE}/allure-results"
+    ENV_FILE = "${env.WORKSPACE}/environments/DEV.postman_environment.json"
+    WEBHOOK_URL = credentials('GOOGLE_CHAT_WEBHOOK')
+    BASE_URL = "http://maid-cloud.vir999.com"
+    ADM_KEY = credentials('DEV_ADM_KEY')
+  }
+
+  stages {
+    stage('Clean Workspace') {
+      steps {
+        echo '🧹 清理 Jenkins 工作目錄...'
+        deleteDir()
+      }
+    }
+
+    stage('Checkout Code') {
+      steps {
+        echo '📥 Checkout Git repo...'
+        checkout scm
+      }
+    }
+
+    stage('Show Commit Info') {
+      steps {
+        sh '''
+          echo "✅ 當前 Git commit：$(git rev-parse HEAD)"
+          echo "📝 Commit 訊息：$(git log -1 --oneline)"
+        '''
+      }
+    }
+
+    stage('Prepare Folders') {
       steps {
         script {
-          catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-            sh '''
-              newman run "${COLLECTION_DIR}/申請廳主買域名.postman_collection.json" \
-                --environment "${ENV_FILE}" \
-                --export-environment "/tmp/exported_env.json" \
-                --insecure \
-                --reporters cli,json,html,junit,allure \
-                --reporter-json-export "${REPORT_DIR}/CustomerApplyPurchaseDomain_report.json" \
-                --reporter-html-export "${HTML_REPORT_DIR}/CustomerApplyPurchaseDomain_report.html" \
-                --reporter-junit-export "${REPORT_DIR}/CustomerApplyPurchaseDomain_report.xml" \
-                --reporter-allure-export "allure-results"
-            '''
-          }
+          def timestamp = sh(script: "date +%Y%m%d_%H%M%S", returnStdout: true).trim()
+          sh """
+            mkdir -p ${env.WORKSPACE}/report_backup
+            if [ -d "${REPORT_DIR}" ]; then
+              mv ${REPORT_DIR} ${env.WORKSPACE}/report_backup/${timestamp}
+              chmod -R 755 ${env.WORKSPACE}/report_backup/${timestamp}
+              echo 📦 備份舊報告到 ${env.WORKSPACE}/report_backup/${timestamp}
+            fi
+            rm -rf ${REPORT_DIR} ${HTML_REPORT_DIR} ${ALLURE_RESULTS_DIR}
+            mkdir -p ${REPORT_DIR} ${HTML_REPORT_DIR} ${ALLURE_RESULTS_DIR}
+          """
         }
       }
     }
