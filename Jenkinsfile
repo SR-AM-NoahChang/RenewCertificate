@@ -180,7 +180,7 @@ pipeline {
                   "cards": [
                     {
                       "header": {
-                        "title": "🚨 Jenkins - 廳主買域名項目資料 (Job狀態檢查 - 異常)",
+                        "title": "🚨 廳主買域名項目資料 (Job狀態檢查 - 異常)",
                         "subtitle": "Workflow ID: ${workflowId}",
                         "imageUrl": "https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png",
                         "imageStyle": "AVATAR"
@@ -395,7 +395,7 @@ pipeline {
                     "cards": [
                       {
                         "header": {
-                          "title": "🚨 Jenkins - 申請購買憑證項目資料 (Job狀態檢查 - 異常)",
+                          "title": "🚨 申請購買憑證項目資料 (Job狀態檢查 - 異常)",
                           "subtitle": "Workflow ID: ${workflowId}",
                           "imageUrl": "https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png",
                           "imageStyle": "AVATAR"
@@ -486,8 +486,8 @@ pipeline {
                   }]
                 }"""
       
-                withEnv(["WEBHOOK_URL=${WEBHOOK_URL}"]) {
-                  sh 'curl -k -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK_URL"'
+                withEnv(["WEBHOOK=${WEBHOOK_URL}"]) {
+                  sh 'curl -k -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"'
                 }
       
                 error("⏰ Workflow Timeout，已通知 webhook")
@@ -567,7 +567,7 @@ pipeline {
             def workflowId = exported.values.find { it.key == 'RC_WORKFLOW_ID' }?.value
     
             if (!workflowId) {
-              error("❌ 無法從 /tmp/exported_env.json 中取得 PC_WORKFLOW_ID")
+              error("❌ 無法從 /tmp/exported_env.json 中取得 RC_WORKFLOW_ID")
             }
     
             echo "📌 取得 workflowId：${workflowId}"
@@ -610,7 +610,7 @@ pipeline {
                     "cards": [
                       {
                         "header": {
-                          "title": "🚨 Jenkins - 申請展延憑證項目資料 (Job狀態檢查 - 異常)",
+                          "title": "🚨 申請展延憑證項目資料 (Job狀態檢查 - 異常)",
                           "subtitle": "Workflow ID: ${workflowId}",
                           "imageUrl": "https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/postman-icon.png",
                           "imageStyle": "AVATAR"
@@ -701,8 +701,8 @@ pipeline {
                   }]
                 }"""
       
-                withEnv(["WEBHOOK_URL=${WEBHOOK_URL}"]) {
-                  sh 'curl -k -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK_URL"'
+                withEnv(["WEBHOOK=${WEBHOOK_URL}"]) {
+                  sh 'curl -k -X POST -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"'
                 }
       
                 error("⏰ Workflow Timeout，已通知 webhook")
